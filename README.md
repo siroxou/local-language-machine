@@ -12,7 +12,7 @@ network dependency. Open a folder, load a model, and start pairing.
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 ![Offline‑first](https://img.shields.io/badge/offline--first-100%25-6E56CF)
 ![Inference](https://img.shields.io/badge/inference-llama.cpp-orange)
-![Tests](https://img.shields.io/badge/tests-56%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-65%20passing-2ea44f)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
 <img src="docs/screenshots/overview.png" alt="Local Language Machine — the main IDE: file explorer, editor, and AI assistant" width="900" />
@@ -51,7 +51,8 @@ that around:**
 | 🧭 **Skills & subagents** | Reusable, `/slash`‑invocable skills and isolated read‑only research subagents. |
 | 🔌 **MCP & hooks** | Connect Model Context Protocol servers and fire shell hooks on lifecycle events. |
 | 🤗 **Model manager** | Search the Hugging Face Hub or paste an `owner/repo` id; resumable download + SHA‑256 verify. |
-| 🎓 **On‑device fine‑tuning** | Built‑in LoRA training — MLX on Apple Silicon, Unsloth on NVIDIA — with live loss streamed to the UI. |
+| 🎓 **On‑device fine‑tuning** | Built‑in LoRA training — MLX on Apple Silicon, Unsloth on NVIDIA — with live loss streamed to the UI, plus a runs history. |
+| 📊 **Benchmark & evaluate** | Measure base vs fine‑tuned on real held‑out data — perplexity, generation speed, and side‑by‑side samples — rendered as charts. Convert a run to GGUF and load it right back into the Assistant. |
 | 🎨 **Liquid‑glass UI** | A themeable interface with color presets, custom backgrounds, effect tuning, and a performance mode. |
 | 💻 **Integrated dock** | A built‑in terminal and a live browser panel for previewing what you build. |
 | 🔀 **Sessions** | Resume, fork, and clear conversations — history is persisted per project. |
@@ -231,18 +232,43 @@ pass through the permission gate before they run.
 
 ---
 
-## Fine‑tuning (LoRA)
+## Fine‑tuning & evaluation (LoRA)
 
 Teach a model your codebase or house style **locally**. The built‑in trainer runs LoRA fine‑tuning
 with the right backend for your hardware — **MLX** on Apple Silicon, **Unsloth** on NVIDIA — and
 streams live loss into the UI. Point it at a `.jsonl` dataset (rows of `text`, `messages`, or
-`prompt`+`completion`), choose a Hugging Face base model, and start; the adapter is saved under your
-app data dir. The first run bootstraps a dedicated Python venv automatically (the one online moment,
-just like the initial model download).
+`prompt`+`completion`) **or paste a Hugging Face dataset id** (fetched and converted for you),
+choose a base model, and start. Every run is saved with its metadata under a **Runs** history, and
+the first run bootstraps a dedicated Python venv automatically (the one online moment, just like the
+initial model download).
 
 <div align="center">
 <img src="docs/screenshots/finetune.png" alt="LoRA fine-tuning panel — base model, dataset, hyperparameters, and a live training log" width="860" />
 </div>
+
+### Benchmark it — real data, real charts
+
+The **Evaluate** tab measures your fine‑tuned model against the base on a held‑out test split, all
+on‑device, and renders it as inline SVG (no chart library). Example: a SmolLM2‑135M LoRA on a slice
+of `tatsu-lab/alpaca` — **held‑out perplexity dropped from 12.99 → 3.61** while the training and
+validation loss fell together:
+
+<div align="center">
+<img src="docs/screenshots/bench-loss.svg" alt="Training and validation loss falling from iter 1 to iter 30" width="560" />
+<br/>
+<img src="docs/screenshots/bench-perplexity.svg" alt="Held-out perplexity: base 12.99 vs fine-tuned 3.61 (lower is better)" width="300" />
+<img src="docs/screenshots/bench-speed.svg" alt="Generation speed: base 536 vs fine-tuned 291 tokens/sec" width="300" />
+</div>
+
+It also generates **side‑by‑side samples** from the same prompts so you can eyeball the behaviour
+change — e.g. after training on Alpaca, the tuned model adopts its terse numbered‑list style:
+
+| Prompt | Base | Fine‑tuned |
+|---|---|---|
+| *Give three tips for staying healthy.* | "Here are three tips for staying healthy:\n\n1. **Stay Hydrated**: Drink plenty of water…" | "1. Eat a balanced diet: A healthy diet provides the necessary nutrients…\n2. Get enough sleep: Aim for 7‑9…" |
+
+When you're happy with a run, **Convert & add** fuses the adapter and exports a GGUF that loads
+straight back into the Assistant — so you can chat with the model you just trained.
 
 ---
 
@@ -265,6 +291,7 @@ src/
 │  ├─ inference/        the bundled engine abstraction
 │  ├─ tools/            file / grep / git / terminal / web tools
 │  ├─ models/           curated registry + Hugging Face hub
+│  ├─ training/         LoRA trainer, benchmarker, and GGUF export
 │  └─ mcp/              Model Context Protocol client
 └─ preview/        localhost web UI (server + single-page app)
 ```

@@ -22,6 +22,9 @@ import { errMsg } from "../core/loop.ts";
 import { searchGguf, listGgufFiles } from "../native/models/hub.ts";
 import { setHfToken } from "../native/models/config.ts";
 import { startTraining, stopTraining, isTraining } from "../native/training/train.ts";
+import { listRuns, fetchHfDataset } from "../native/training/runs.ts";
+import { startConvert } from "../native/training/gguf.ts";
+import { runEval } from "../native/training/eval.ts";
 
 const PORT = Number(process.env.PORT ?? 7433);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -476,12 +479,20 @@ wss.on("connection", (ws) => {
 				}
 				break;
 
-			// ————— LoRA fine-tuning (train-only v1) —————
+			// ————— LoRA fine-tuning + benchmarker —————
 			case "train-start":
 				try {
-					if (isTraining()) { send({ type: "train-error", message: "A training run is already active." }); break; }
+					if (isTraining()) { send({ type: "train-error", message: "A training/eval task is already active." }); break; }
 					const c = msg.config ?? {};
-					const datasetPath = isAbsolute(String(c.datasetPath ?? "")) ? String(c.datasetPath) : resolve(ROOT, String(c.datasetPath ?? ""));
+					let datasetPath: string;
+					if (c.hfDataset && String(c.hfDataset).trim()) {
+						broadcast({ type: "train-log", line: `▸ Fetching HuggingFace dataset ${c.hfDataset} …` });
+						const r = await fetchHfDataset(String(c.hfDataset), { config: c.hfConfig, split: c.hfSplit, limit: c.hfLimit }, ROOT, (line) => broadcast({ type: "train-log", line }));
+						datasetPath = r.path;
+						broadcast({ type: "train-log", line: `▸ Wrote ${r.rows} rows → ${r.path}` });
+					} else {
+						datasetPath = isAbsolute(String(c.datasetPath ?? "")) ? String(c.datasetPath) : resolve(ROOT, String(c.datasetPath ?? ""));
+					}
 					await startTraining({ ...c, datasetPath }, broadcast); // resolves once spawned; done/error arrive via broadcast
 				} catch (e) {
 					broadcast({ type: "train-error", message: errMsg(e) });
@@ -490,6 +501,20 @@ wss.on("connection", (ws) => {
 
 			case "train-stop":
 				stopTraining();
+				break;
+
+			case "train-runs":
+				send({ type: "train-runs", runs: listRuns() });
+				break;
+
+			case "convert-gguf":
+				if (isTraining()) { send({ type: "train-error", message: "A training/eval task is already active." }); break; }
+				void startConvert(String(msg.runId), broadcast);
+				break;
+
+			case "eval-start":
+				if (isTraining()) { send({ type: "eval-error", message: "A training/eval task is already active." }); break; }
+				void runEval(String(msg.runId), broadcast);
 				break;
 		}
 	});

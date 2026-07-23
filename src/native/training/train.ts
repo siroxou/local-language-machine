@@ -13,9 +13,11 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { appHome } from "../paths.ts";
 import { ensureVenv } from "./venv.ts";
+import { writeMeta, type RunMeta } from "./runs.ts";
 
 export type Backend = "mlx" | "unsloth";
 
@@ -42,15 +44,42 @@ export type TrainEvent =
 
 export type Emit = (e: TrainEvent) => void;
 
-// One run for the whole app (not per-connection) — training is a heavyweight singleton.
+// One heavy task at a time for the whole app (train / fuse / convert / eval share this).
+// `pending` covers the async setup window before the child spawns.
 let child: ChildProcess | null = null;
+let pending = false;
 
 export function isTraining(): boolean {
-	return child != null;
+	return child != null || pending;
 }
 
 export function stopTraining(): void {
 	child?.kill("SIGINT");
+}
+
+/**
+ * Spawn a subprocess as the single managed child, stream each stdout/stderr line to
+ * `onLine`, and resolve with its exit code. Shared by training, fuse, GGUF-convert and
+ * eval so only one heavy task runs at a time (stopTraining kills whichever it is).
+ */
+export function runManaged(cmd: string, args: string[], cwd: string, onLine: (line: string) => void): Promise<number> {
+	if (child) throw new Error("Another training/eval task is already active.");
+	return new Promise((resolve) => {
+		const stream = lineStreamer(onLine);
+		const proc = spawn(cmd, args, { cwd, env: process.env });
+		child = proc;
+		proc.stdout?.on("data", (d) => stream.push(d.toString()));
+		proc.stderr?.on("data", (d) => stream.push(d.toString()));
+		proc.on("error", (e) => { stream.flush(); onLine(`ERROR: ${e.message}`); child = null; resolve(1); });
+		proc.on("close", (code) => { stream.flush(); child = null; resolve(code ?? 0); });
+	});
+}
+
+/** Hold the single-task lock across a multi-step async flow (fuse→convert, eval passes). */
+export async function withBusy<T>(fn: () => Promise<T>): Promise<T> {
+	if (child || pending) throw new Error("Another training/eval task is already active.");
+	pending = true;
+	try { return await fn(); } finally { pending = false; }
 }
 
 /** darwin/arm64 → mlx, an NVIDIA box → unsloth. `pref` other than "auto" wins. */
@@ -131,13 +160,19 @@ export function stageDataset(datasetPath: string, runDir: string, valSplit = 0.1
 		try { o = JSON.parse(line); } catch { throw new Error(`Dataset line ${idx + 1} is not valid JSON.`); }
 		if (!validRow(o)) throw new Error(`Dataset line ${idx + 1}: unsupported shape — ${SHAPES}.`);
 	});
-	// Hold out at least one row for validation (MLX evaluates against valid.jsonl).
-	const nVal = Math.min(rows.length - 1, Math.max(1, Math.floor(rows.length * valSplit)));
+	// 3-way split: valid (for during-training eval) + test (held out for the benchmarker),
+	// each ≥1 row when the data allows; train gets the rest. MLX reads valid.jsonl during
+	// training and test.jsonl for `--test`.
+	const hold = Math.max(1, Math.floor(rows.length * valSplit));
+	const nVal = Math.min(hold, rows.length - 1);
+	const nTest = Math.min(hold, rows.length - nVal - 1);
 	const valid = rows.slice(0, nVal);
-	const train = rows.slice(nVal);
+	const test = rows.slice(nVal, nVal + nTest);
+	const train = rows.slice(nVal + nTest);
 	mkdirSync(runDir, { recursive: true });
 	writeFileSync(join(runDir, "train.jsonl"), train.join("\n") + "\n");
 	writeFileSync(join(runDir, "valid.jsonl"), valid.join("\n") + "\n");
+	if (test.length) writeFileSync(join(runDir, "test.jsonl"), test.join("\n") + "\n");
 	return rows.length;
 }
 
@@ -176,7 +211,7 @@ function buildCommand(cfg: TrainConfig, backend: Backend, runDir: string, python
 		// mlx_lm.lora is the long-standing module entry; a version rename is a one-line fix.
 		return { cmd: python, args: ["-m", "mlx_lm.lora", "--config", writeMlxConfig(cfg, runDir)] };
 	}
-	const script = new URL("./unsloth_train.py", import.meta.url).pathname;
+	const script = fileURLToPath(new URL("./unsloth_train.py", import.meta.url)); // fileURLToPath decodes spaces (.pathname would keep %20)
 	const cfgJson = join(runDir, "cfg.json");
 	writeFileSync(cfgJson, JSON.stringify({
 		base_model: cfg.baseModel,
@@ -197,39 +232,43 @@ function buildCommand(cfg: TrainConfig, backend: Backend, runDir: string, python
  * child is spawned; completion is reported later via `train-done`/`train-error`.
  */
 export async function startTraining(cfg: TrainConfig, emit: Emit): Promise<void> {
-	if (child) throw new Error("A training run is already active.");
+	if (child || pending) throw new Error("A training run is already active.");
 	if (!cfg.baseModel?.trim()) throw new Error("Pick a base model (a Hugging Face repo id).");
+	pending = true;
+	try {
+		const backend = pickBackend(cfg.backend);
+		const runId = new Date().toISOString().replace(/[:.]/g, "-") + "-" + randomUUID().slice(0, 8);
+		const runDir = join(appHome(), "adapters", runId);
+		mkdirSync(runDir, { recursive: true });
 
-	const backend = pickBackend(cfg.backend);
-	const runId = new Date().toISOString().replace(/[:.]/g, "-") + "-" + randomUUID().slice(0, 8);
-	const runDir = join(appHome(), "adapters", runId);
-	mkdirSync(runDir, { recursive: true });
+		const meta: RunMeta = {
+			runId, backend, baseModel: cfg.baseModel, config: cfg, status: "running",
+			startedAt: new Date().toISOString(), lossCurve: [], adapterDir: join(runDir, "adapters"),
+		};
+		writeMeta(meta);
 
-	emit({ type: "train-log", line: `▸ Backend: ${backend} · run ${runId}` });
-	// Stage the dataset FIRST — a malformed dataset fails instantly, before the (slow,
-	// first-run) venv install and without spawning anything.
-	const rows = stageDataset(cfg.datasetPath, runDir, cfg.valSplit);
-	emit({ type: "train-log", line: `▸ Dataset: ${rows} rows staged → ${runDir}` });
-	const python = await ensureVenv(backend, (line) => emit({ type: "train-log", line }));
+		emit({ type: "train-log", line: `▸ Backend: ${backend} · run ${runId}` });
+		// Stage the dataset FIRST — a malformed dataset fails instantly, before the (slow,
+		// first-run) venv install and without spawning anything.
+		const rows = stageDataset(cfg.datasetPath, runDir, cfg.valSplit);
+		emit({ type: "train-log", line: `▸ Dataset: ${rows} rows staged → ${runDir}` });
+		const python = await ensureVenv(backend, (line) => emit({ type: "train-log", line }));
 
-	const { cmd, args } = buildCommand(cfg, backend, runDir, python);
-	emit({ type: "train-log", line: `▸ ${cmd} ${args.join(" ")}\n` });
+		const { cmd, args } = buildCommand(cfg, backend, runDir, python);
+		emit({ type: "train-log", line: `▸ ${cmd} ${args.join(" ")}\n` });
 
-	const stream = lineStreamer((line) => {
-		emit({ type: "train-log", line });
-		const p = parseProgress(backend, line);
-		if (p) emit({ type: "train-progress", ...p });
-	});
-
-	const proc = spawn(cmd, args, { cwd: runDir, env: process.env });
-	child = proc;
-	proc.stdout?.on("data", (d) => stream.push(d.toString()));
-	proc.stderr?.on("data", (d) => stream.push(d.toString()));
-	proc.on("error", (e) => { stream.flush(); emit({ type: "train-error", message: e.message }); child = null; });
-	proc.on("close", (code) => {
-		stream.flush();
-		if (code === 0) emit({ type: "train-done", adapterDir: join(runDir, "adapters") });
-		else emit({ type: "train-error", message: `Trainer exited with code ${code ?? "?"}.` });
-		child = null;
-	});
+		// Fire-and-forget: resolve to the caller once spawned; completion arrives via events + meta.
+		runManaged(cmd, args, runDir, (line) => {
+			emit({ type: "train-log", line });
+			const p = parseProgress(backend, line);
+			if (p) { meta.lossCurve.push(p); emit({ type: "train-progress", ...p }); }
+		}).then((code) => {
+			meta.finishedAt = new Date().toISOString();
+			if (code === 0) { meta.status = "done"; writeMeta(meta); emit({ type: "train-done", adapterDir: meta.adapterDir }); }
+			else { meta.status = "error"; meta.error = `Trainer exited with code ${code}.`; writeMeta(meta); emit({ type: "train-error", message: meta.error }); }
+		});
+	} finally {
+		// child (if it spawned) now reflects "busy"; if setup threw, this clears the flag.
+		pending = false;
+	}
 }

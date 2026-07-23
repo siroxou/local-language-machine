@@ -36,8 +36,10 @@ test("stageDataset validates rows and splits train/valid", async () => {
 	assert.equal(n, 10);
 	const train = (await readFile(join(run, "train.jsonl"), "utf8")).trim().split("\n");
 	const valid = (await readFile(join(run, "valid.jsonl"), "utf8")).trim().split("\n");
-	assert.equal(valid.length, 1); // floor(10*0.1) = 1 held out
-	assert.equal(train.length, 9);
+	const test = (await readFile(join(run, "test.jsonl"), "utf8")).trim().split("\n");
+	assert.equal(valid.length, 1); // floor(10*0.1) held out for validation
+	assert.equal(test.length, 1);  // and for the benchmarker's held-out test set
+	assert.equal(train.length, 8); // train gets the rest
 });
 
 test("stageDataset rejects malformed rows before any run", async () => {

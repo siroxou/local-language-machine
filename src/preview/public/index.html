@@ -340,6 +340,26 @@
 	.train-row input:focus { border-color: var(--ac); }
 	.train-loss { color: var(--tx); font-variant-numeric: tabular-nums; }
 	.train-log { height: 340px; overflow-y: auto; margin-top: var(--s1); padding: var(--s1) var(--s2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #c4cddb; background: rgba(0,0,0,.28); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); }
+	/* ——— runs history + evaluation ——— */
+	#trainRuns { display: flex; flex-direction: column; gap: 6px; }
+	.run-card { display: flex; align-items: center; gap: var(--s2); padding: 10px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); }
+	.run-card .info { flex: 1; min-width: 0; }
+	.run-card .rid { font-family: var(--mono); font-size: 11.5px; color: var(--tx); word-break: break-all; }
+	.run-card .rmeta { font-size: 11px; color: var(--tx-dim); margin-top: 2px; }
+	.run-st { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--brd-soft); flex: 0 0 auto; }
+	.run-st.done { color: #56d364; border-color: rgba(48,209,88,.4); }
+	.run-st.running { color: #d9c97c; }
+	.run-st.error { color: #ff8170; border-color: rgba(255,129,112,.4); }
+	.run-act { font: inherit; font-size: 11.5px; color: var(--tx); background: var(--glass); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 10px; cursor: pointer; transition: .15s; flex: 0 0 auto; }
+	.run-act:hover { border-color: var(--ac); color: #fff; }
+	.eval-chart { margin: var(--s2) 0; }
+	.eval-chart h4 { margin: 0 0 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--tx-faint); }
+	.eval-chart svg { max-width: 100%; height: auto; }
+	.eval-samples { width: 100%; border-collapse: collapse; margin-top: var(--s2); font-size: 12px; }
+	.eval-samples th, .eval-samples td { text-align: left; vertical-align: top; padding: 8px 10px; border-top: 1px solid var(--brd-soft); }
+	.eval-samples th { color: var(--tx-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; }
+	.eval-samples td { color: var(--tx-dim); white-space: pre-wrap; word-break: break-word; }
+	.eval-empty { color: var(--tx-faint); font-size: 12px; padding: var(--s2) 0; }
 	.tune-quant { color: var(--tx-faint); }
 	.tune-hint { color: var(--tx-faint); font-size: 11.5px; }
 	.tune-sys { margin: 4px 0 var(--s2); }
@@ -701,6 +721,8 @@
 				<div class="seg train-tabs">
 					<button data-gtab="setup" class="on">Setup</button>
 					<button data-gtab="run">Run</button>
+					<button data-gtab="runs">Runs</button>
+					<button data-gtab="evaluate">Evaluate</button>
 				</div>
 				<span class="grow"></span>
 				<button class="approve" id="trainClose">Done</button>
@@ -712,6 +734,7 @@
 						<div class="train-badge" id="trainBackend">Engine: auto — MLX on Apple Silicon · Unsloth on CUDA</div>
 						<div class="train-row"><label title="Hugging Face repo id — NOT a .gguf">Base model</label><input id="trBase" type="text" spellcheck="false" value="HuggingFaceTB/SmolLM2-135M-Instruct" placeholder="owner/model on Hugging Face"></div>
 						<div class="train-row"><label>Dataset</label><input id="trData" type="text" spellcheck="false" placeholder="path/to/train.jsonl (in your workspace)"></div>
+						<div class="train-row"><label title="Fetched via the HuggingFace datasets-server and converted to chat jsonl">HF dataset</label><input id="trHf" type="text" spellcheck="false" placeholder="e.g. tatsu-lab/alpaca — overrides the path above"></div>
 						<div class="train-row"><label>Iterations</label><input id="trIters" type="number" min="1" step="1" value="100"></div>
 						<div class="train-row"><label>Learning rate</label><input id="trLr" type="number" min="0" step="0.00001" value="0.00001"></div>
 						<div class="train-row"><label>LoRA rank</label><input id="trRank" type="number" min="1" step="1" value="8"></div>
@@ -722,6 +745,16 @@
 					<section class="train-panel" data-gtab="run" hidden>
 						<div class="sub">Live trainer output. <span class="train-loss" id="trainLoss">—</span></div>
 						<div class="train-log mono" id="trainLog"></div>
+					</section>
+					<section class="train-panel" data-gtab="runs" hidden>
+						<div class="sub">Past training runs. <button id="runsRefresh" class="tune-hint" style="background:none;border:0;color:var(--ac);cursor:pointer">↻ Refresh</button></div>
+						<div id="trainRuns"></div>
+					</section>
+					<section class="train-panel" data-gtab="evaluate" hidden>
+						<div class="sub">Benchmark a run — base model vs your fine-tuned model, on real held-out data.</div>
+						<div class="train-row"><label>Run</label><select id="evalRun"></select></div>
+						<div class="tune-actions"><button id="evalStart" class="approve">Run evaluation</button> <span id="evalStatus" class="tune-hint"></span></div>
+						<div id="evalCharts"></div>
 					</section>
 				</div>
 			</div>
@@ -1073,6 +1106,12 @@ onMsg((m) => {
 		case "train-progress": $("trainLoss").textContent = "iter " + m.iter + (m.loss != null ? " · loss " + m.loss.toFixed(3) : "") + (m.valLoss != null ? " · val " + m.valLoss.toFixed(3) : ""); break;
 		case "train-done": trainWrite("\n✅ Done — adapter saved to " + m.adapterDir + "\n"); $("trainLoss").textContent = "done"; toast("Training complete"); sfx.added(); break;
 		case "train-error": trainWrite("\n⚠️ " + m.message + "\n"); $("trainLoss").textContent = "error"; toast("Training error"); sfx.error(); break;
+		case "train-runs": renderRuns(m.runs); break;
+		case "eval-progress": $("evalStatus").textContent = m.stage || "…"; break;
+		case "eval-done": $("evalStatus").textContent = "Done ✓"; renderEval(m.result, m.lossCurve); refreshRuns(); toast("Evaluation complete"); sfx.added(); break;
+		case "eval-error": $("evalStatus").textContent = "⚠️ " + m.message; trainWrite("\n⚠️ " + m.message + "\n"); toast("Eval error"); sfx.error(); break;
+		case "fuse-done": trainWrite("\n✅ Fused → " + m.fusedDir + "\n"); refreshRuns(); toast("Model fused"); break;
+		case "convert-done": trainWrite("\n✅ Added to Assistant: " + m.label + "\n"); send({ type: "status" }); refreshRuns(); toast("Added to Assistant ✓"); sfx.added(); break;
 		case "download-progress": { const pct = m.total ? Math.floor((m.downloaded / m.total) * 100) : 0; downloading[m.modelId] = pct; const c = models.querySelector(`.chip[data-id="${m.modelId}"]`); if (c) setChipProgress(c, pct); if ($("hfOverlay").classList.contains("show")) hfStatus.textContent = `Downloading… ${pct}%`; break; }
 		case "download-done": delete downloading[m.modelId]; sfx.added(); if ($("hfOverlay").classList.contains("show")) { hfStatus.textContent = "Added ✓"; setTimeout(() => $("hfOverlay").classList.remove("show"), 800); } break;
 		case "confirm-request": askConfirm(m.id, m.message); sfx.confirm(); break;
@@ -1439,22 +1478,111 @@ function trainWrite(text) { trainLogEl.textContent += text; trainLogEl.scrollTop
 function trainSwitch(tab) {
 	document.querySelectorAll(".train-tabs button").forEach((x) => x.classList.toggle("on", x.dataset.gtab === tab));
 	document.querySelectorAll(".train-panel").forEach((p) => (p.hidden = p.dataset.gtab !== tab));
+	if (tab === "runs" || tab === "evaluate") refreshRuns();
 }
 document.querySelectorAll(".train-tabs button").forEach((b) => (b.onclick = () => { trainSwitch(b.dataset.gtab); sfx.click(); }));
-$("trainBtn").onclick = () => { $("trainOverlay").classList.add("show"); sfx.click(); };
+$("trainBtn").onclick = () => { $("trainOverlay").classList.add("show"); refreshRuns(); sfx.click(); };
 $("trainClose").onclick = () => $("trainOverlay").classList.remove("show");
 $("trainOverlay").addEventListener("click", (e) => { if (e.target.id === "trainOverlay") $("trainOverlay").classList.remove("show"); });
 $("trainStart").onclick = () => {
-	const base = $("trBase").value.trim(), data = $("trData").value.trim();
+	const base = $("trBase").value.trim(), data = $("trData").value.trim(), hf = $("trHf").value.trim();
 	if (!base) { toast("Enter a base model (Hugging Face repo id)."); return; }
-	if (!data) { toast("Enter a dataset path (a .jsonl in your workspace)."); return; }
-	const config = { backend: "auto", method: "lora", baseModel: base, datasetPath: data,
+	if (!data && !hf) { toast("Enter a dataset path or a HuggingFace dataset id."); return; }
+	const config = { backend: "auto", method: "lora", baseModel: base, datasetPath: data, hfDataset: hf || undefined,
 		iters: +$("trIters").value || 100, learningRate: +$("trLr").value || 1e-5,
 		loraRank: +$("trRank").value || 8, batchSize: +$("trBatch").value || 4, maxSeqLen: +$("trSeq").value || 2048 };
 	trainLogEl.textContent = ""; $("trainLoss").textContent = "starting…"; trainSwitch("run");
 	send({ type: "train-start", config }); sfx.click();
 };
 $("trainStop").onclick = () => { send({ type: "train-stop" }); trainWrite("\n■ Stop requested…\n"); };
+
+// ————— runs history + evaluation (base vs fine-tuned) —————
+const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+let lastRuns = [];
+function refreshRuns() { send({ type: "train-runs" }); }
+
+// Vanilla inline-SVG line chart (no deps). series: [{name,color,points:[{x,y}]}].
+function svgLine(series) {
+	const w = 560, h = 220, pad = 42;
+	const pts = series.flatMap((s) => s.points);
+	if (!pts.length) return '<div class="eval-empty">No loss data.</div>';
+	const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+	let xmin = Math.min(...xs), xmax = Math.max(...xs), ymin = Math.min(...ys), ymax = Math.max(...ys);
+	if (xmax === xmin) xmax = xmin + 1;
+	const yr = (ymax - ymin) || 1; ymin -= yr * 0.08; ymax += yr * 0.08;
+	const sx = (x) => pad + (x - xmin) / (xmax - xmin) * (w - pad - 14);
+	const sy = (y) => h - pad - (y - ymin) / (ymax - ymin) * (h - pad - 20);
+	let g = "";
+	for (let i = 0; i <= 4; i++) { const yy = ymin + (ymax - ymin) * i / 4, py = sy(yy);
+		g += `<line x1="${pad}" y1="${py.toFixed(1)}" x2="${w - 14}" y2="${py.toFixed(1)}" stroke="var(--brd-soft)"/>`;
+		g += `<text x="${pad - 6}" y="${(py + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--tx-faint)">${yy.toFixed(2)}</text>`; }
+	g += `<text x="${pad}" y="${h - pad + 16}" font-size="9" fill="var(--tx-faint)">iter ${xmin}</text>`;
+	g += `<text x="${w - 14}" y="${h - pad + 16}" text-anchor="end" font-size="9" fill="var(--tx-faint)">iter ${xmax}</text>`;
+	let lx = pad;
+	for (const s of series) {
+		if (!s.points.length) continue;
+		g += `<polyline points="${s.points.map((p) => sx(p.x).toFixed(1) + "," + sy(p.y).toFixed(1)).join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+		for (const p of s.points) g += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.5" fill="${s.color}"/>`;
+		g += `<rect x="${lx}" y="6" width="10" height="10" rx="2" fill="${s.color}"/><text x="${lx + 14}" y="15" font-size="10" fill="var(--tx-dim)">${s.name}</text>`;
+		lx += 30 + s.name.length * 6;
+	}
+	return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+// Vanilla bar chart. items: [{name,value,color}].
+function svgBars(items, unit) {
+	const w = 300, h = 180, pad = 30, bw = 74, gap = 44;
+	const max = Math.max(...items.map((i) => i.value), 0.0001), baseY = h - pad;
+	let g = "";
+	items.forEach((it, i) => {
+		const bh = Math.max(1, (it.value / max) * (h - pad - 26)), x = pad + i * (bw + gap);
+		g += `<rect x="${x}" y="${(baseY - bh).toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" rx="4" fill="${it.color}"/>`;
+		g += `<text x="${x + bw / 2}" y="${(baseY - bh - 6).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--tx)">${it.value}${unit || ""}</text>`;
+		g += `<text x="${x + bw / 2}" y="${baseY + 15}" text-anchor="middle" font-size="10" fill="var(--tx-dim)">${it.name}</text>`;
+	});
+	return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+}
+function renderEval(result, lossCurve) {
+	const el = $("evalCharts"); let html = "";
+	if (lossCurve && lossCurve.length) {
+		const train = lossCurve.filter((p) => p.loss != null).map((p) => ({ x: p.iter, y: p.loss }));
+		const val = lossCurve.filter((p) => p.valLoss != null).map((p) => ({ x: p.iter, y: p.valLoss }));
+		const series = [];
+		if (train.length) series.push({ name: "train loss", color: "var(--ac)", points: train });
+		if (val.length) series.push({ name: "val loss", color: "#ff8170", points: val });
+		if (series.length) html += `<div class="eval-chart"><h4>Training loss</h4>${svgLine(series)}</div>`;
+	}
+	if (result && result.perplexity) html += `<div class="eval-chart"><h4>Perplexity — lower is better</h4>${svgBars([{ name: "base", value: result.perplexity.base, color: "#8a94a6" }, { name: "tuned", value: result.perplexity.tuned, color: "var(--ac)" }])}</div>`;
+	if (result && result.speed) html += `<div class="eval-chart"><h4>Generation speed</h4>${svgBars([{ name: "base", value: result.speed.base, color: "#8a94a6" }, { name: "tuned", value: result.speed.tuned, color: "#30d1c8" }], " tok/s")}</div>`;
+	if (result && result.samples && result.samples.length) {
+		const rows = result.samples.map((s) => `<tr><td>${escHtml(s.prompt)}</td><td>${escHtml(s.base)}</td><td>${escHtml(s.tuned)}</td></tr>`).join("");
+		html += `<div class="eval-chart"><h4>Sample generations</h4><table class="eval-samples"><thead><tr><th>Prompt</th><th>Base</th><th>Fine-tuned</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+	}
+	el.innerHTML = html || '<div class="eval-empty">No data yet — pick a run and click Run evaluation.</div>';
+}
+function previewLoss() { const r = lastRuns.find((x) => x.runId === $("evalRun").value) || lastRuns[0]; if (r) renderEval(r.eval, r.lossCurve); }
+function renderRuns(runs) {
+	lastRuns = runs || [];
+	const host = $("trainRuns");
+	host.innerHTML = lastRuns.length ? lastRuns.map((r) => {
+		const last = (r.lossCurve || []).filter((p) => p.loss != null).slice(-1)[0];
+		const loss = last ? " · loss " + last.loss.toFixed(3) : "";
+		const base = r.baseModel ? escHtml(r.baseModel.split("/").pop()) : "unknown base";
+		return `<div class="run-card"><div class="info"><div class="rid">${escHtml(r.runId)}</div><div class="rmeta">${base}${loss}${r.ggufModelId ? " · in Assistant ✓" : ""}</div></div>`
+			+ `<span class="run-st ${r.status}">${r.status}</span>`
+			+ `<button class="run-act" data-act="eval" data-run="${escHtml(r.runId)}">Evaluate</button>`
+			+ `<button class="run-act" data-act="convert" data-run="${escHtml(r.runId)}">Convert &amp; add</button></div>`;
+	}).join("") : '<div class="eval-empty">No runs yet. Train a model in the Setup tab.</div>';
+	host.querySelectorAll(".run-act").forEach((b) => (b.onclick = () => runAction(b.dataset.act, b.dataset.run)));
+	$("evalRun").innerHTML = lastRuns.map((r) => `<option value="${escHtml(r.runId)}">${escHtml(r.runId)}${r.baseModel ? " — " + escHtml(r.baseModel.split("/").pop()) : ""}</option>`).join("");
+	if (lastRuns.length) previewLoss();
+}
+function runAction(act, runId) {
+	if (act === "eval") { trainSwitch("evaluate"); $("evalRun").value = runId; $("evalStatus").textContent = "Starting…"; $("evalCharts").innerHTML = ""; send({ type: "eval-start", runId }); }
+	else if (act === "convert") { trainSwitch("run"); $("trainLog").textContent = ""; toast("Converting to GGUF — watch the Run tab"); send({ type: "convert-gguf", runId }); }
+}
+$("runsRefresh").onclick = () => { refreshRuns(); sfx.click(); };
+$("evalRun").onchange = previewLoss;
+$("evalStart").onclick = () => { const runId = $("evalRun").value; if (!runId) { toast("No run selected."); return; } $("evalStatus").textContent = "Starting…"; $("evalCharts").innerHTML = ""; send({ type: "eval-start", runId }); };
 
 // ————— Hugging Face model browser —————
 const hfBody = $("hfBody"), hfStatus = $("hfStatus"), hfQuery = $("hfQuery");
