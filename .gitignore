@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Local tooling / editor cruft
+.claude/
+.vscode/
+.idea/
+.DS_Store
+
+# Logs & secrets
+*.log
+.env
+.env.*
+
+# Model cache lives in ~/.local-language-machine (outside the repo)
