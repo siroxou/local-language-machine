@@ -14,9 +14,18 @@ import type { TrainConfig, Backend } from "./train.ts";
 export interface LossPoint { iter: number; loss?: number; valLoss?: number }
 
 export interface EvalResult {
+	/** Per-token perplexity. Tokenizer-dependent — compare WITHIN a model, never across families. */
 	perplexity?: { base: number; tuned: number };
-	speed?: { base: number; tuned: number }; // tokens/sec
-	samples?: Array<{ prompt: string; base: string; tuned: string }>;
+	/** Bits per answer byte. Same denominator for every tokenizer, so safe to compare across models. */
+	bitsPerByte?: { base: number; tuned: number };
+	/** Free-text accuracy from the closed-set grader, over the whole held-out set. */
+	accuracy?: { base: number; tuned: number; n: number };
+	/** Teacher-forced multiple choice — immune to verbosity, the headline cross-model number. */
+	mcq?: { base: number; tuned: number; n: number };
+	/** Rows and tokens actually scored, so a number is never quoted without its n. */
+	scored?: { rows: number; tokens: number };
+	speed?: { base: number; tuned: number }; // tokens/sec — diagnostic only (thermals, batch occupancy)
+	samples?: Array<{ prompt: string; base: string; tuned: string; reference?: string; baseGrade?: string; tunedGrade?: string }>;
 	evaluatedAt?: string;
 }
 
@@ -36,6 +45,12 @@ export interface RunMeta {
 	ggufModelId?: string;
 	error?: string;
 	eval?: EvalResult;
+	/** Checkpoint promoted to adapters.safetensors (best val loss), and its loss. */
+	selectedIter?: number;
+	bestValLoss?: number;
+	/** Staged-dataset provenance — proves two runs trained/scored the same rows. */
+	dataHashes?: Record<string, string>;
+	datasetRows?: number;
 }
 
 export function runsRoot(): string {
