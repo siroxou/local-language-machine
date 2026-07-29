@@ -246,29 +246,77 @@ initial model download).
 <img src="docs/screenshots/finetune.png" alt="LoRA fine-tuning panel — base model, dataset, hyperparameters, and a live training log" width="860" />
 </div>
 
-### Benchmark it — real data, real charts
+Training defaults are chosen so a run is honest by default: loss is computed on the **answer only**
+(not the prompt), the split is **seeded and de‑duplicated**, and when the run finishes the
+**lowest‑validation‑loss checkpoint is promoted** over the final one. That last point matters more
+than it sounds — MLX writes numbered checkpoints but loads `adapters.safetensors`, so a run that
+peaks at iteration 150 and overfits through 300 would otherwise ship the worse adapter.
 
-The **Evaluate** tab measures your fine‑tuned model against the base on a held‑out test split, all
-on‑device, and renders it as inline SVG (no chart library). Example: a SmolLM2‑135M LoRA on a slice
-of `tatsu-lab/alpaca` — **held‑out perplexity dropped from 12.99 → 3.61** while the training and
-validation loss fell together:
+### Benchmark it — real metrics, real charts
+
+The **Evaluate** tab scores your fine‑tuned model against the base on a held‑out split, on‑device,
+and renders it as inline SVG (no chart library). It reports four things, in the order you should
+trust them:
+
+| Metric | What it is | Comparable across models? |
+|---|---|---|
+| **Multiple choice** | Teacher‑forced: each candidate answer scored, lowest loss wins | **Yes** — immune to verbosity |
+| **Free‑text accuracy** | Generated answer graded against a closed set of candidates | Mostly — verbosity‑sensitive |
+| **Bits per byte** | Loss over the answer's UTF‑8 bytes | **Yes** — same denominator for every tokenizer |
+| **Perplexity** | Per‑token, completion‑only | **No** — depends on the tokenizer |
+
+Grading scans the output for members of a known closed answer set on word boundaries, rather than
+normalising and substring‑matching. The naive approach is quietly wrong on real data: stripping
+articles makes *"Hepatitis A"* match *"Hepatitis B"*, and stripping punctuation makes *"12.5 mg"*
+contain the distractor *"25 mg"*. Answers are graded **correct / wrong / abstain / ambiguous**, so a
+model that declines to answer is never scored the same as one that guesses wrong.
 
 <div align="center">
-<img src="docs/screenshots/bench-loss.svg" alt="Training and validation loss falling from iter 1 to iter 30" width="560" />
-<br/>
-<img src="docs/screenshots/bench-perplexity.svg" alt="Held-out perplexity: base 12.99 vs fine-tuned 3.61 (lower is better)" width="300" />
-<img src="docs/screenshots/bench-speed.svg" alt="Generation speed: base 536 vs fine-tuned 291 tokens/sec" width="300" />
+<img src="docs/screenshots/bench-loss.svg" alt="Training and validation loss falling together across iterations" width="560" />
 </div>
 
-It also generates **side‑by‑side samples** from the same prompts so you can eyeball the behaviour
-change — e.g. after training on Alpaca, the tuned model adopts its terse numbered‑list style:
-
-| Prompt | Base | Fine‑tuned |
-|---|---|---|
-| *Give three tips for staying healthy.* | "Here are three tips for staying healthy:\n\n1. **Stay Hydrated**: Drink plenty of water…" | "1. Eat a balanced diet: A healthy diet provides the necessary nutrients…\n2. Get enough sleep: Aim for 7‑9…" |
+Sample generations are drawn from the **held‑out set** and shown next to the reference answer, so
+you are comparing against ground truth rather than eyeballing style drift on unrelated prompts.
 
 When you're happy with a run, **Convert & add** fuses the adapter and exports a GGUF that loads
 straight back into the Assistant — so you can chat with the model you just trained.
+
+### Sweep a model matrix
+
+`bench/` runs the same dataset and hyperparameters across many models and writes one comparison
+report. It runs as a standalone process so a multi‑hour sweep survives closing the browser, and it
+checkpoints after every cell, so re‑running resumes instead of restarting.
+
+```bash
+npm run bench:data     # generate the synthetic evaluation corpus
+npm run bench          # run every cell in bench/matrix.json
+```
+
+The bundled corpus is a **fully invented clinical domain** — every compound, class and marker is
+coined, and the generator asserts that no answer shares a 4‑gram with its own entity name, so
+nothing is guessable from morphology. Because the domain cannot appear in any pretraining set, base
+models score at chance by construction and any gain is provably from the fine‑tune. Four suites
+measure different things: recall of trained facts under unseen phrasing, generalisation to a second
+phrasing, two‑hop composition that is never trained directly, and entities held out entirely
+(a hallucination check).
+
+Running it across three families and a 55× size range ([full report](bench/results/report.md)):
+
+| Model | Params | Recall | Composition |
+|---|---:|---:|---:|
+| SmolLM2‑135M | 0.135B | 50% | 21% |
+| SmolLM2‑360M | 0.362B | 72% | 17% |
+| Qwen2.5‑0.5B | 0.494B | 100% | 17% |
+| Falcon3‑1B | 1.669B | 83% | 17% |
+| SmolLM2‑1.7B | 1.711B | 94% | 21% |
+| Qwen2.5‑3B | 3.090B | 98% | 17% |
+| Falcon3‑3B | 3.228B | 90% | 17% |
+| Falcon3‑7B | 7.456B | 100% | 29% |
+| Qwen2.5‑7B | 7.620B | 100% | 21% |
+
+Recall climbs steeply below 0.5B and saturates above it. Composition never leaves the 25% chance
+line at any size — both hops are trained separately and no model joins them. Three seeds of the same
+cell give a **±4.8pt** run‑to‑run spread, which is the noise floor any comparison has to clear.
 
 ---
 
@@ -294,6 +342,12 @@ src/
 │  ├─ training/         LoRA trainer, benchmarker, and GGUF export
 │  └─ mcp/              Model Context Protocol client
 └─ preview/        localhost web UI (server + single-page app)
+
+bench/
+├─ gen-dataset.ts   deterministic synthetic-corpus generator (no RNG, self-checking)
+├─ matrix.json      the model matrix + shared hyperparameters
+├─ run-matrix.ts    resumable sweep runner → experiment.json + report.md
+└─ results/         committed reports from the runs described above
 ```
 
 ---
