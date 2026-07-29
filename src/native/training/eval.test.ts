@@ -2,28 +2,57 @@
 // No Python / GPU / network needed.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseTestLoss, parseGenSpeed } from "./eval.ts";
+import { parseEvalJson, gradeAnswer, gradingKeys } from "./eval.ts";
 import { writeMeta, readMeta, listRuns, runDirOf, mapRow, type RunMeta } from "./runs.ts";
 
 // appHome() is only read inside these functions (never at import time), so pointing app
 // data at a temp dir here — before any test body runs — is enough to isolate the tests.
 process.env.LLM_HOME = mkdtempSync(join(tmpdir(), "llm-eval-"));
 
-test("parseTestLoss reads loss + ppl, and derives ppl when absent", () => {
-	assert.deepEqual(parseTestLoss("Test loss 1.200, Test ppl 3.320"), { loss: 1.2, ppl: 3.32 });
-	const derived = parseTestLoss("Test loss 0.000");
-	assert.equal(derived?.loss, 0);
-	assert.equal(derived?.ppl, 1); // exp(0)
-	assert.equal(parseTestLoss("Starting training"), null);
+test("parseEvalJson survives payloads containing newlines, quotes and equals signs", () => {
+	const payload = { loss: 1.2, ppl: 3.32, bitsPerByte: 0.9, rows: 10, tokens: 40, bytes: 30 };
+	assert.deepEqual(parseEvalJson("EVAL_JSON " + JSON.stringify(payload)), payload);
+	// the old delimiter-scraping broke on model output like this; the JSON line does not
+	assert.equal(parseEvalJson("========== a=b \"q\" ==========" ), null);
+	assert.equal(parseEvalJson("Test loss 1.2"), null);
 });
 
-test("parseGenSpeed reads tokens-per-sec from the Generation line", () => {
-	assert.equal(parseGenSpeed("Generation: 128 tokens, 80.500 tokens-per-sec"), 80.5);
-	assert.equal(parseGenSpeed("Prompt: 12 tokens, 200.0 tokens-per-sec"), null); // only the Generation line counts
-	assert.equal(parseGenSpeed("blah"), null);
+test("gradeAnswer does not confuse answers that differ only by a trailing letter", () => {
+	// The classic normalise-and-contain bug: stripping articles makes these match.
+	assert.equal(gradeAnswer("It is Hepatitis B.", "Hepatitis A", ["Hepatitis B", "Hepatitis C"]), "wrong");
+	assert.equal(gradeAnswer("It is Hepatitis A.", "Hepatitis A", ["Hepatitis B"]), "correct");
+});
+
+test("gradeAnswer does not let a decimal answer trip a substring distractor", () => {
+	// "12.5 mg" must not count as containing the distractor "25 mg".
+	assert.equal(gradeAnswer("The dose is 12.5 mg daily.", "12.5 mg", ["25 mg", "40 mg"]), "correct");
+	assert.equal(gradeAnswer("The dose is 25 mg daily.", "12.5 mg", ["25 mg"]), "wrong");
+});
+
+test("gradeAnswer reports abstain and ambiguous rather than guessing", () => {
+	assert.equal(gradeAnswer("I don't know.", "caltherin-B", ["velmoxine"]), "abstain");
+	assert.equal(gradeAnswer("Either caltherin-B or velmoxine.", "caltherin-B", ["velmoxine"]), "ambiguous");
+	assert.equal(gradeAnswer("", "caltherin-B", ["velmoxine"]), "abstain");
+});
+
+test("gradeAnswer matches on word boundaries, not bare substrings", () => {
+	assert.equal(gradeAnswer("the answer is velmoxinered", "velmoxine", []), "abstain"); // not a real hit
+	assert.equal(gradeAnswer("answer: velmoxine!", "velmoxine", []), "correct");         // punctuation is fine
+});
+
+test("gradingKeys reads answer/distractors, falling back to the reference completion", () => {
+	const dir = mkdtempSync(join(tmpdir(), "llm-keys-"));
+	const f = join(dir, "test.jsonl");
+	writeFileSync(f, [
+		JSON.stringify({ messages: [{ role: "user", content: "q" }, { role: "assistant", content: "The answer is X." }], answer: "X", distractors: ["Y", "Z"] }),
+		JSON.stringify({ messages: [{ role: "user", content: "q2" }, { role: "assistant", content: "plain answer" }] }),
+	].join("\n") + "\n");
+	const k = gradingKeys(f);
+	assert.deepEqual(k[0], { answer: "X", distractors: ["Y", "Z"] });
+	assert.deepEqual(k[1], { answer: "plain answer", distractors: [] }); // graceful fallback
 });
 
 test("run metadata round-trips and lists newest-first", () => {

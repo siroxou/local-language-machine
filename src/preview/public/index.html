@@ -257,6 +257,32 @@
 	.overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
 		padding: var(--s3); background: rgba(4,6,10,.55); backdrop-filter: blur(6px); }
 	.overlay.show { display: flex; animation: fade .25s ease; }
+
+	/* ——— onboarding (first-run walkthrough) ——— */
+	.onb { max-width: 560px; width: 92%; }
+	.onb-hero { text-align: center; }
+	.onb-mark { font-size: 32px; color: var(--ac); filter: drop-shadow(0 0 14px var(--ac-soft)); line-height: 1.1; }
+	.onb h3 { text-align: center; margin: 6px 0 4px; }
+	.onb .sub { text-align: center; }
+	.onb-body { margin: var(--s2) 0 2px; min-height: 152px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+	.onb-pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+	.onb-pill { font-size: 12px; color: var(--tx-dim); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 5px 12px; }
+	.onb-feat { display: flex; gap: 11px; align-items: flex-start; padding: 9px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); }
+	.onb-feat .ic { font-size: 16px; flex: 0 0 22px; text-align: center; }
+	.onb-feat b { font-size: 13px; color: var(--tx); }
+	.onb-feat .d { font-size: 12px; color: var(--tx-dim); margin-top: 1px; line-height: 1.4; }
+	.onb-model { text-align: center; display: flex; flex-direction: column; gap: var(--s2); align-items: center; }
+	.onb-model .big { font-size: 13px; color: var(--tx-dim); max-width: 410px; line-height: 1.5; }
+	.onb-cta { font: inherit; font-weight: 600; font-size: 13px; color: #fff; background: var(--ac); border: 0; border-radius: var(--r-md); padding: 10px 20px; cursor: pointer; transition: .15s; }
+	.onb-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--ac-soft); }
+	.onb-ready { color: #43d17a; font-weight: 600; font-size: 14px; }
+	.onb-foot { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); }
+	.onb-dots { display: flex; gap: 6px; margin: 0 auto; }
+	.onb-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--brd); transition: .2s; }
+	.onb-dots i.on { background: var(--ac); transform: scale(1.2); }
+	.onb-nav { display: flex; gap: var(--s1); }
+	.onb-skip { background: none; border: 0; color: var(--tx-faint); font: inherit; font-size: 12px; cursor: pointer; }
+	.onb-skip:hover { color: var(--tx-dim); }
 	@keyframes fade { from { opacity: 0; } }
 	.dialog { max-width: 440px; width: 100%; padding: var(--s3); border-radius: var(--r-lg); animation: pop .32s cubic-bezier(.2,.9,.3,1.2); }
 	@keyframes pop { from { opacity: 0; transform: scale(.94) translateY(8px); } }
@@ -360,6 +386,11 @@
 	.eval-samples th { color: var(--tx-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; }
 	.eval-samples td { color: var(--tx-dim); white-space: pre-wrap; word-break: break-word; }
 	.eval-empty { color: var(--tx-faint); font-size: 12px; padding: var(--s2) 0; }
+	.grade-correct, .grade-wrong, .grade-abstain, .grade-ambiguous { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; vertical-align: middle; }
+	.grade-correct { background: #1d7f5f33; color: #35d39a; }
+	.grade-wrong { background: #7f1d1d33; color: #ff8170; }
+	.grade-abstain { background: #6b728033; color: var(--tx-faint); }
+	.grade-ambiguous { background: #7f5f1d33; color: #e0a94a; }
 	.tune-quant { color: var(--tx-faint); }
 	.tune-hint { color: var(--tx-faint); font-size: 11.5px; }
 	.tune-sys { margin: 4px 0 var(--s2); }
@@ -513,6 +544,7 @@
 				<button id="sessionsBtn" class="icon-btn" title="Sessions (resume / fork)">⧉</button>
 				<button id="skillsBtn" class="icon-btn" title="Skills & import">✦</button>
 				<button id="trainBtn" class="icon-btn" title="Model training — LoRA fine-tune">🎓</button>
+				<button id="helpBtn" class="icon-btn" title="Getting started">?</button>
 				<button id="customizeBtn" class="cust-btn">✧ Customize</button>
 			<span class="badge"><span class="dot" id="netDot"></span> <span id="netLabel">Offline · no external services</span></span>
 		</div>
@@ -618,6 +650,23 @@
 			<div class="row2">
 				<button class="deny" id="deny">Deny</button>
 				<button class="approve" id="approve">Approve</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="overlay" id="onboardOverlay">
+		<div class="dialog glass onb">
+			<div class="onb-hero"><div class="onb-mark">◆</div></div>
+			<h3 id="onbTitle"></h3>
+			<div class="sub" id="onbSub"></div>
+			<div class="onb-body" id="onbBody"></div>
+			<div class="onb-foot">
+				<button class="onb-skip" id="onbSkip">Skip</button>
+				<div class="onb-dots" id="onbDots"></div>
+				<div class="onb-nav">
+					<button class="deny" id="onbBack">Back</button>
+					<button class="approve" id="onbNext">Next</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -736,10 +785,11 @@
 						<div class="train-row"><label>Dataset</label><input id="trData" type="text" spellcheck="false" placeholder="path/to/train.jsonl (in your workspace)"></div>
 						<div class="train-row"><label title="Fetched via the HuggingFace datasets-server and converted to chat jsonl">HF dataset</label><input id="trHf" type="text" spellcheck="false" placeholder="e.g. tatsu-lab/alpaca — overrides the path above"></div>
 						<div class="train-row"><label>Iterations</label><input id="trIters" type="number" min="1" step="1" value="100"></div>
-						<div class="train-row"><label>Learning rate</label><input id="trLr" type="number" min="0" step="0.00001" value="0.00001"></div>
+						<div class="train-row"><label title="1e-5 suits tiny demo models; 2e-4 is a typical LoRA rate for ≥1B models">Learning rate</label><input id="trLr" type="number" min="0" step="0.00001" value="0.00001"></div>
 						<div class="train-row"><label>LoRA rank</label><input id="trRank" type="number" min="1" step="1" value="8"></div>
 						<div class="train-row"><label>Batch size</label><input id="trBatch" type="number" min="1" step="1" value="4"></div>
 						<div class="train-row"><label>Max seq length</label><input id="trSeq" type="number" min="128" step="128" value="2048"></div>
+						<div class="train-row"><label title="MLX only: transformer layers to adapt. -1 = all layers (recommended for ≥1B models); 16 = the demo default">Layers to adapt</label><input id="trLayers" type="number" min="-1" step="1" value="16"></div>
 						<div class="tune-actions"><button id="trainStart" class="approve">Start training</button> <button id="trainStop" class="deny">Stop</button> <span id="trainHint" class="tune-hint">Rows: {"text":…} · {"messages":[…]} · {"prompt","completion"}</span></div>
 					</section>
 					<section class="train-panel" data-gtab="run" hidden>
@@ -1081,9 +1131,95 @@ input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey)
 input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px"; });
 
 // ————— dispatch —————
+// ————— onboarding (first-run walkthrough) —————
+const ONB_KEY = "llm-onboarded";
+let lastModels = [], onbStep = 0, onbShown = false;
+
+const ONB_STEPS = [
+	{
+		title: "Welcome to Local Language Machine",
+		sub: "A complete AI coding workspace that runs entirely on your own machine — no cloud, no API keys, nothing ever leaves your computer.",
+		body: () => `<div class="onb-pills"><span class="onb-pill">🔒 100% offline</span><span class="onb-pill">⚡ Your GPU or CPU</span><span class="onb-pill">🧠 Any GGUF model</span></div>`,
+	},
+	{
+		title: "Load a model to begin",
+		sub: "The assistant is powered by a language model running locally. Grab one to start — they range from a 135M speedster to 7B for the sharpest code.",
+		body: onbModelBody,
+	},
+	{
+		title: "How it works",
+		sub: "Everything you need lives in one window.",
+		body: () => onbFeats([
+			["💬", "Assistant", "Ask in plain English — it reads and edits your real files for you."],
+			["📂", "Explorer &amp; Editor", "A full editor with tabs, search &amp; replace, and a live file tree."],
+			["⌨️", "Terminal &amp; Browser", "Run commands and preview local dev servers, built right in."],
+			["🛡️", "Permission modes", "Click <b>manual</b> in the header (or press Shift+Tab) to control what runs on its own."],
+		]),
+	},
+	{
+		title: "Go further",
+		sub: "When you're ready for more.",
+		body: () => onbFeats([
+			["✦", "Skills", "Reusable prompts and imported Claude skills."],
+			["⧉", "Sessions", "Resume or fork any past conversation."],
+			["⚙", "Tune", "Set temperature, context size, and a system prompt per model."],
+			["🎓", "Train", "LoRA fine-tune a model on your own .jsonl data — locally."],
+		]),
+	},
+];
+
+function onbFeats(rows) {
+	return rows.map(([ic, t, d]) => `<div class="onb-feat"><span class="ic">${ic}</span><span><b>${t}</b><div class="d">${d}</div></span></div>`).join("");
+}
+
+function onbModelBody() {
+	const loaded = lastModels.find((m) => m.loaded);
+	if (loaded) return `<div class="onb-model"><div class="onb-ready">✓ ${shortName(loaded.label)} is loaded and ready</div><div class="big">You're all set. Add more anytime with <b>+ Add model</b> in the Assistant panel.</div></div>`;
+	const cached = lastModels.find((m) => m.cached);
+	if (cached) return `<div class="onb-model"><div class="big">You already have <b>${shortName(cached.label)}</b> downloaded.</div><button class="onb-cta" id="onbLoad" data-id="${cached.id}">▶ Load ${shortName(cached.label)}</button></div>`;
+	return `<div class="onb-model"><div class="big">You don't have a model yet. Pick one from Hugging Face — it downloads once, then runs fully offline, forever.</div><button class="onb-cta" id="onbGetModel">⬇ Browse &amp; download a model</button></div>`;
+}
+
+function renderOnb() {
+	const step = ONB_STEPS[onbStep];
+	$("onbTitle").innerHTML = step.title;
+	$("onbSub").innerHTML = step.sub;
+	$("onbBody").innerHTML = step.body();
+	$("onbDots").innerHTML = ONB_STEPS.map((_, i) => `<i class="${i === onbStep ? "on" : ""}"></i>`).join("");
+	$("onbBack").style.visibility = onbStep === 0 ? "hidden" : "";
+	$("onbNext").textContent = onbStep === ONB_STEPS.length - 1 ? "Start building →" : "Next";
+	const get = $("onbGetModel"); if (get) get.onclick = openHf;
+	const load = $("onbLoad");
+	if (load) load.onclick = () => { const mm = lastModels.find((m) => m.id === load.dataset.id); send({ type: "load", modelId: load.dataset.id }); toast("Loading " + shortName(mm.label) + "…"); };
+}
+
+function openOnboard() { onbStep = 0; renderOnb(); $("onboardOverlay").classList.add("show"); sfx.click(); }
+
+function onbNav(dir) {
+	const n = onbStep + dir;
+	if (n < 0) return;
+	if (n >= ONB_STEPS.length) { $("onboardOverlay").classList.remove("show"); toast("You're all set — happy building"); sfx.added(); return; }
+	onbStep = n; renderOnb(); sfx.click();
+}
+
+// First launch only: show once, then remember. The ? button reopens it anytime.
+function maybeOnboard() {
+	if (onbShown) return;
+	onbShown = true;
+	let seen = false; try { seen = localStorage.getItem(ONB_KEY) === "1"; } catch {}
+	if (seen) return;
+	try { localStorage.setItem(ONB_KEY, "1"); } catch {}
+	openOnboard();
+}
+
+$("onbNext").onclick = () => onbNav(1);
+$("onbBack").onclick = () => onbNav(-1);
+$("onbSkip").onclick = () => { $("onboardOverlay").classList.remove("show"); };
+$("helpBtn").onclick = () => { onbShown = true; openOnboard(); };
+
 onMsg((m) => {
 	switch (m.type) {
-		case "status": renderModels(m.models, m.loaded, m.gpu); updateCtx(m.loaded ? m.contextUsed : 0, m.loaded ? m.contextWindow : 0); updateMode(m.mode); updateNet(m.online); updateCheckpoints(m.checkpoints); currentRoot = m.root || currentRoot; lastSkills = m.skills || []; if ($("skillsOverlay").classList.contains("show")) renderSkills(lastSkills); break;
+		case "status": lastModels = m.models || []; renderModels(m.models, m.loaded, m.gpu); updateCtx(m.loaded ? m.contextUsed : 0, m.loaded ? m.contextWindow : 0); updateMode(m.mode); updateNet(m.online); updateCheckpoints(m.checkpoints); currentRoot = m.root || currentRoot; lastSkills = m.skills || []; if ($("skillsOverlay").classList.contains("show")) renderSkills(lastSkills); maybeOnboard(); if ($("onboardOverlay").classList.contains("show")) renderOnb(); break;
 		case "gpu-usage": gpuUsagePct = m.usage; renderGpu(); break;
 		case "tree": renderTree(m.nodes); break;
 		case "file": openFile(m.path, m.content); if (pendingGoto && pendingGoto.path === m.path) { gotoLine(pendingGoto.line); pendingGoto = null; } break;
@@ -1490,14 +1626,15 @@ $("trainStart").onclick = () => {
 	if (!data && !hf) { toast("Enter a dataset path or a HuggingFace dataset id."); return; }
 	const config = { backend: "auto", method: "lora", baseModel: base, datasetPath: data, hfDataset: hf || undefined,
 		iters: +$("trIters").value || 100, learningRate: +$("trLr").value || 1e-5,
-		loraRank: +$("trRank").value || 8, batchSize: +$("trBatch").value || 4, maxSeqLen: +$("trSeq").value || 2048 };
+		loraRank: +$("trRank").value || 8, batchSize: +$("trBatch").value || 4, maxSeqLen: +$("trSeq").value || 2048,
+		numLayers: +$("trLayers").value || 16 };
 	trainLogEl.textContent = ""; $("trainLoss").textContent = "starting…"; trainSwitch("run");
 	send({ type: "train-start", config }); sfx.click();
 };
 $("trainStop").onclick = () => { send({ type: "train-stop" }); trainWrite("\n■ Stop requested…\n"); };
 
 // ————— runs history + evaluation (base vs fine-tuned) —————
-const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let lastRuns = [];
 function refreshRuns() { send({ type: "train-runs" }); }
 
@@ -1551,11 +1688,19 @@ function renderEval(result, lossCurve) {
 		if (val.length) series.push({ name: "val loss", color: "#ff8170", points: val });
 		if (series.length) html += `<div class="eval-chart"><h4>Training loss</h4>${svgLine(series)}</div>`;
 	}
-	if (result && result.perplexity) html += `<div class="eval-chart"><h4>Perplexity — lower is better</h4>${svgBars([{ name: "base", value: result.perplexity.base, color: "#8a94a6" }, { name: "tuned", value: result.perplexity.tuned, color: "var(--ac)" }])}</div>`;
-	if (result && result.speed) html += `<div class="eval-chart"><h4>Generation speed</h4>${svgBars([{ name: "base", value: result.speed.base, color: "#8a94a6" }, { name: "tuned", value: result.speed.tuned, color: "#30d1c8" }], " tok/s")}</div>`;
+	const pct = (v) => Math.round(v * 1000) / 10;
+	const n = result && result.scored ? ` <span class="tune-hint">n=${result.scored.rows} rows · ${result.scored.tokens} tokens</span>` : "";
+	// MCQ leads: it's teacher-forced, so it can't be skewed by how verbose a model is.
+	if (result && result.mcq) html += `<div class="eval-chart"><h4>Multiple-choice accuracy — higher is better${n}</h4>${svgBars([{ name: "base", value: pct(result.mcq.base), color: "#8a94a6" }, { name: "tuned", value: pct(result.mcq.tuned), color: "var(--ac)" }], "%")}</div>`;
+	if (result && result.accuracy) html += `<div class="eval-chart"><h4>Free-text accuracy — higher is better</h4>${svgBars([{ name: "base", value: pct(result.accuracy.base), color: "#8a94a6" }, { name: "tuned", value: pct(result.accuracy.tuned), color: "#30d1c8" }], "%")}</div>`;
+	if (result && result.bitsPerByte) html += `<div class="eval-chart"><h4>Bits per byte — lower is better <span class="tune-hint">tokenizer-independent, safe to compare across models</span></h4>${svgBars([{ name: "base", value: result.bitsPerByte.base, color: "#8a94a6" }, { name: "tuned", value: result.bitsPerByte.tuned, color: "var(--ac)" }])}</div>`;
+	if (result && result.perplexity) html += `<div class="eval-chart"><h4>Perplexity — lower is better <span class="tune-hint">per-token: compare within this model only</span></h4>${svgBars([{ name: "base", value: result.perplexity.base, color: "#8a94a6" }, { name: "tuned", value: result.perplexity.tuned, color: "var(--ac)" }])}</div>`;
+	if (result && result.speed && (result.speed.base || result.speed.tuned)) html += `<div class="eval-chart"><h4>Generation speed <span class="tune-hint">diagnostic — varies with batch occupancy and thermals</span></h4>${svgBars([{ name: "base", value: result.speed.base, color: "#8a94a6" }, { name: "tuned", value: result.speed.tuned, color: "#30d1c8" }], " tok/s")}</div>`;
 	if (result && result.samples && result.samples.length) {
-		const rows = result.samples.map((s) => `<tr><td>${escHtml(s.prompt)}</td><td>${escHtml(s.base)}</td><td>${escHtml(s.tuned)}</td></tr>`).join("");
-		html += `<div class="eval-chart"><h4>Sample generations</h4><table class="eval-samples"><thead><tr><th>Prompt</th><th>Base</th><th>Fine-tuned</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+		const hasRef = result.samples.some((s) => s.reference != null);
+		const mark = (g) => (g ? ` <span class="grade-${g}">${g}</span>` : "");
+		const rows = result.samples.map((s) => `<tr><td>${escHtml(s.prompt)}</td><td>${escHtml(s.base)}${mark(s.baseGrade)}</td><td>${escHtml(s.tuned)}${mark(s.tunedGrade)}</td>${hasRef ? `<td>${escHtml(s.reference)}</td>` : ""}</tr>`).join("");
+		html += `<div class="eval-chart"><h4>Sample generations — held-out prompts</h4><table class="eval-samples"><thead><tr><th>Prompt</th><th>Base</th><th>Fine-tuned</th>${hasRef ? "<th>Reference</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div>`;
 	}
 	el.innerHTML = html || '<div class="eval-empty">No data yet — pick a run and click Run evaluation.</div>';
 }
