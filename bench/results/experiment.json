@@ -1,0 +1,957 @@
+{
+  "config": {
+    "dataset": "datasets/kestrel",
+    "suites": {
+      "mem": "test.jsonl",
+      "para": "test_para.jsonl",
+      "comp": "test_comp.jsonl",
+      "unseen": "test_unseen.jsonl"
+    },
+    "shared": {
+      "iters": 800,
+      "learningRate": 0.00001,
+      "loraRank": 16,
+      "batchSize": 4,
+      "maxSeqLen": 256,
+      "numLayers": -1,
+      "warmupSteps": 20,
+      "seed": 42,
+      "loraScale": 20
+    },
+    "cells": [
+      {
+        "id": "qwen2.5-0.5b",
+        "family": "Qwen2.5",
+        "params": 0.494,
+        "baseModel": "Qwen/Qwen2.5-0.5B-Instruct"
+      },
+      {
+        "id": "qwen2.5-3b",
+        "family": "Qwen2.5",
+        "params": 3.09,
+        "baseModel": "Qwen/Qwen2.5-3B-Instruct"
+      },
+      {
+        "id": "qwen2.5-7b",
+        "family": "Qwen2.5",
+        "params": 7.62,
+        "baseModel": "Qwen/Qwen2.5-7B-Instruct"
+      },
+      {
+        "id": "smollm2-135m",
+        "family": "SmolLM2",
+        "params": 0.135,
+        "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct"
+      },
+      {
+        "id": "smollm2-360m",
+        "family": "SmolLM2",
+        "params": 0.362,
+        "baseModel": "HuggingFaceTB/SmolLM2-360M-Instruct"
+      },
+      {
+        "id": "smollm2-1.7b",
+        "family": "SmolLM2",
+        "params": 1.711,
+        "baseModel": "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+      },
+      {
+        "id": "falcon3-1b",
+        "family": "Falcon3",
+        "params": 1.669,
+        "baseModel": "tiiuae/Falcon3-1B-Instruct"
+      },
+      {
+        "id": "falcon3-3b",
+        "family": "Falcon3",
+        "params": 3.228,
+        "baseModel": "tiiuae/Falcon3-3B-Instruct"
+      },
+      {
+        "id": "falcon3-7b",
+        "family": "Falcon3",
+        "params": 7.456,
+        "baseModel": "tiiuae/Falcon3-7B-Instruct"
+      },
+      {
+        "id": "smollm2-135m-s2",
+        "family": "SmolLM2",
+        "params": 0.135,
+        "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "overrides": {
+          "seed": 7
+        },
+        "replicate": true
+      },
+      {
+        "id": "smollm2-135m-s3",
+        "family": "SmolLM2",
+        "params": 0.135,
+        "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "overrides": {
+          "seed": 99
+        },
+        "replicate": true
+      }
+    ],
+    "_comment": "Effective LoRA step size is learningRate * loraScale (mlx applies scale raw: y + scale*z). 2e-4 * 20 = 4e-3 diverged on Qwen/Falcon (loss spiked to 13 by iter 30); 1e-5 * 20 = 2e-4 is mlx's own paired default and trains every width stably. See bench/results-diverged/ for the failed run."
+  },
+  "results": [
+    {
+      "id": "qwen2.5-0.5b",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+      "trainSeconds": 68,
+      "adapterMB": 33.6,
+      "runId": "2026-07-29T00-41-31-363Z-1526d44f",
+      "base": {
+        "mem": {
+          "mcq": 0.3016,
+          "acc": 0.0079,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 1.3973,
+          "ppl": 17.8584
+        },
+        "para": {
+          "mcq": 0.2857,
+          "acc": 0,
+          "abstain": 0.9762,
+          "n": 126,
+          "bpb": 1.4574,
+          "ppl": 20.2164
+        },
+        "comp": {
+          "mcq": 0.4167,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 1.8038,
+          "ppl": 45.9663
+        },
+        "unseen": {
+          "mcq": 0.25,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.4872,
+          "ppl": 25.1006
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 1,
+          "acc": 0.9921,
+          "abstain": 0.0079,
+          "n": 126,
+          "bpb": 0.0065,
+          "ppl": 1.0135
+        },
+        "para": {
+          "mcq": 1,
+          "acc": 0.9921,
+          "abstain": 0.0079,
+          "n": 126,
+          "bpb": 0.0043,
+          "ppl": 1.0089
+        },
+        "comp": {
+          "mcq": 0.1667,
+          "acc": 0,
+          "abstain": 0.4583,
+          "n": 24,
+          "bpb": 1.2995,
+          "ppl": 15.7645
+        },
+        "unseen": {
+          "mcq": 0.5,
+          "acc": 0.35,
+          "abstain": 0.3,
+          "n": 20,
+          "bpb": 0.0929,
+          "ppl": 1.2229
+        }
+      }
+    },
+    {
+      "id": "qwen2.5-3b",
+      "family": "Qwen2.5",
+      "params": 3.09,
+      "baseModel": "Qwen/Qwen2.5-3B-Instruct",
+      "trainSeconds": 276,
+      "adapterMB": 114.24,
+      "runId": "2026-07-29T00-44-17-341Z-77892c4d",
+      "base": {
+        "mem": {
+          "mcq": 0.2619,
+          "acc": 0,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 2.7265,
+          "ppl": 277.1168
+        },
+        "para": {
+          "mcq": 0.246,
+          "acc": 0,
+          "abstain": 0.9683,
+          "n": 126,
+          "bpb": 2.4547,
+          "ppl": 158.177
+        },
+        "comp": {
+          "mcq": 0.25,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 3.4403,
+          "ppl": 1481.2431
+        },
+        "unseen": {
+          "mcq": 0.25,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 2.7489,
+          "ppl": 386.4401
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.9841,
+          "acc": 0.9762,
+          "abstain": 0,
+          "n": 126,
+          "bpb": 0.0061,
+          "ppl": 1.0126
+        },
+        "para": {
+          "mcq": 0.9921,
+          "acc": 0.9921,
+          "abstain": 0,
+          "n": 126,
+          "bpb": 0.0042,
+          "ppl": 1.0087
+        },
+        "comp": {
+          "mcq": 0.1667,
+          "acc": 0.1667,
+          "abstain": 0.375,
+          "n": 24,
+          "bpb": 1.4162,
+          "ppl": 20.194
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0.1,
+          "abstain": 0.55,
+          "n": 20,
+          "bpb": 0.1052,
+          "ppl": 1.2561
+        }
+      }
+    },
+    {
+      "id": "qwen2.5-7b",
+      "family": "Qwen2.5",
+      "params": 7.62,
+      "baseModel": "Qwen/Qwen2.5-7B-Instruct",
+      "trainSeconds": 428,
+      "selectedIter": 650,
+      "bestValLoss": 0.002,
+      "adapterMB": 154.04,
+      "runId": "2026-07-29T00-55-49-933Z-38cdf519",
+      "base": {
+        "mem": {
+          "mcq": 0.246,
+          "acc": 0,
+          "abstain": 0.9762,
+          "n": 126,
+          "bpb": 2.8011,
+          "ppl": 323.1814
+        },
+        "para": {
+          "mcq": 0.2778,
+          "acc": 0.0079,
+          "abstain": 0.9444,
+          "n": 126,
+          "bpb": 2.7144,
+          "ppl": 270.2775
+        },
+        "comp": {
+          "mcq": 0.375,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 4.0917,
+          "ppl": 5901.5292
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0,
+          "abstain": 0.95,
+          "n": 20,
+          "bpb": 2.7736,
+          "ppl": 407.6712
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 1,
+          "acc": 0.9841,
+          "abstain": 0.0159,
+          "n": 126,
+          "bpb": 0.0032,
+          "ppl": 1.0066
+        },
+        "para": {
+          "mcq": 1,
+          "acc": 0.9683,
+          "abstain": 0.0317,
+          "n": 126,
+          "bpb": 0.0067,
+          "ppl": 1.0138
+        },
+        "comp": {
+          "mcq": 0.2083,
+          "acc": 0.1667,
+          "abstain": 0.25,
+          "n": 24,
+          "bpb": 0.9587,
+          "ppl": 7.6479
+        },
+        "unseen": {
+          "mcq": 0.35,
+          "acc": 0.15,
+          "abstain": 0.45,
+          "n": 20,
+          "bpb": 0.1229,
+          "ppl": 1.3053
+        }
+      }
+    },
+    {
+      "id": "smollm2-135m",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "trainSeconds": 40,
+      "adapterMB": 18.68,
+      "runId": "2026-07-29T01-17-11-186Z-2bbaa287",
+      "base": {
+        "mem": {
+          "mcq": 0.2063,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.4,
+          "ppl": 19.4334
+        },
+        "para": {
+          "mcq": 0.2222,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.369,
+          "ppl": 18.1976
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.0004,
+          "ppl": 61.4588
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.4314,
+          "ppl": 21.9947
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.5,
+          "acc": 0.2857,
+          "abstain": 0.4444,
+          "n": 126,
+          "bpb": 0.0827,
+          "ppl": 1.1915
+        },
+        "para": {
+          "mcq": 0.5,
+          "acc": 0.3016,
+          "abstain": 0.254,
+          "n": 126,
+          "bpb": 0.0769,
+          "ppl": 1.177
+        },
+        "comp": {
+          "mcq": 0.2083,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 1.0525,
+          "ppl": 8.731
+        },
+        "unseen": {
+          "mcq": 0.15,
+          "acc": 0.05,
+          "abstain": 0.6,
+          "n": 20,
+          "bpb": 0.1616,
+          "ppl": 1.4175
+        }
+      }
+    },
+    {
+      "id": "smollm2-360m",
+      "family": "SmolLM2",
+      "params": 0.362,
+      "baseModel": "HuggingFaceTB/SmolLM2-360M-Instruct",
+      "trainSeconds": 56,
+      "adapterMB": 33.17,
+      "runId": "2026-07-29T01-18-47-036Z-3cfb3ca9",
+      "base": {
+        "mem": {
+          "mcq": 0.246,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.2867,
+          "ppl": 15.2844
+        },
+        "para": {
+          "mcq": 0.2063,
+          "acc": 0.0079,
+          "abstain": 0.9524,
+          "n": 126,
+          "bpb": 1.2394,
+          "ppl": 13.8286
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 1.7968,
+          "ppl": 40.4097
+        },
+        "unseen": {
+          "mcq": 0.3,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.3315,
+          "ppl": 17.7261
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.7222,
+          "acc": 0.5397,
+          "abstain": 0.2381,
+          "n": 126,
+          "bpb": 0.0534,
+          "ppl": 1.1199
+        },
+        "para": {
+          "mcq": 0.8016,
+          "acc": 0.5397,
+          "abstain": 0.2698,
+          "n": 126,
+          "bpb": 0.0517,
+          "ppl": 1.1157
+        },
+        "comp": {
+          "mcq": 0.1667,
+          "acc": 0.125,
+          "abstain": 0.7083,
+          "n": 24,
+          "bpb": 1.4629,
+          "ppl": 20.3209
+        },
+        "unseen": {
+          "mcq": 0.3,
+          "acc": 0.2,
+          "abstain": 0.35,
+          "n": 20,
+          "bpb": 0.0863,
+          "ppl": 1.2048
+        }
+      }
+    },
+    {
+      "id": "smollm2-1.7b",
+      "family": "SmolLM2",
+      "params": 1.711,
+      "baseModel": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      "trainSeconds": 124,
+      "adapterMB": 69.03,
+      "runId": "2026-07-29T01-21-08-537Z-62786852",
+      "base": {
+        "mem": {
+          "mcq": 0.2381,
+          "acc": 0.0079,
+          "abstain": 0.9762,
+          "n": 126,
+          "bpb": 1.5408,
+          "ppl": 26.1936
+        },
+        "para": {
+          "mcq": 0.2222,
+          "acc": 0.0317,
+          "abstain": 0.8651,
+          "n": 126,
+          "bpb": 1.4961,
+          "ppl": 23.825
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.3016,
+          "ppl": 114.2514
+        },
+        "unseen": {
+          "mcq": 0.25,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.5349,
+          "ppl": 27.4981
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.9444,
+          "acc": 0.9286,
+          "abstain": 0.0476,
+          "n": 126,
+          "bpb": 0.0144,
+          "ppl": 1.031
+        },
+        "para": {
+          "mcq": 0.9524,
+          "acc": 0.9286,
+          "abstain": 0.0397,
+          "n": 126,
+          "bpb": 0.0134,
+          "ppl": 1.0287
+        },
+        "comp": {
+          "mcq": 0.2083,
+          "acc": 0.0833,
+          "abstain": 0.7083,
+          "n": 24,
+          "bpb": 1.1397,
+          "ppl": 10.4478
+        },
+        "unseen": {
+          "mcq": 0.4,
+          "acc": 0.25,
+          "abstain": 0.35,
+          "n": 20,
+          "bpb": 0.0674,
+          "ppl": 1.1566
+        }
+      }
+    },
+    {
+      "id": "falcon3-1b",
+      "family": "Falcon3",
+      "params": 1.669,
+      "baseModel": "tiiuae/Falcon3-1B-Instruct",
+      "trainSeconds": 92,
+      "adapterMB": 49.53,
+      "runId": "2026-07-29T01-27-49-470Z-1ddf6fd6",
+      "base": {
+        "mem": {
+          "mcq": 0.1746,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.4217,
+          "ppl": 31.1103
+        },
+        "para": {
+          "mcq": 0.2222,
+          "acc": 0.0079,
+          "abstain": 0.9048,
+          "n": 126,
+          "bpb": 1.3994,
+          "ppl": 29.4773
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.4147,
+          "ppl": 311.8772
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.3992,
+          "ppl": 30.3947
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.8333,
+          "acc": 0.746,
+          "abstain": 0.0556,
+          "n": 126,
+          "bpb": 0.0322,
+          "ppl": 1.0811
+        },
+        "para": {
+          "mcq": 0.8571,
+          "acc": 0.746,
+          "abstain": 0.1349,
+          "n": 126,
+          "bpb": 0.0361,
+          "ppl": 1.0911
+        },
+        "comp": {
+          "mcq": 0.1667,
+          "acc": 0.125,
+          "abstain": 0.0417,
+          "n": 24,
+          "bpb": 1.1619,
+          "ppl": 15.853
+        },
+        "unseen": {
+          "mcq": 0.3,
+          "acc": 0.15,
+          "abstain": 0.45,
+          "n": 20,
+          "bpb": 0.0829,
+          "ppl": 1.2242
+        }
+      }
+    },
+    {
+      "id": "falcon3-3b",
+      "family": "Falcon3",
+      "params": 3.228,
+      "baseModel": "tiiuae/Falcon3-3B-Instruct",
+      "trainSeconds": 164,
+      "selectedIter": 750,
+      "bestValLoss": 0.051,
+      "adapterMB": 77.03,
+      "runId": "2026-07-29T01-32-05-824Z-2450c9a6",
+      "base": {
+        "mem": {
+          "mcq": 0.2222,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.7043,
+          "ppl": 61.5983
+        },
+        "para": {
+          "mcq": 0.2619,
+          "acc": 0,
+          "abstain": 0.9683,
+          "n": 126,
+          "bpb": 1.6402,
+          "ppl": 52.759
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.6473,
+          "ppl": 542.3292
+        },
+        "unseen": {
+          "mcq": 0.15,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.7355,
+          "ppl": 69.0436
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.9048,
+          "acc": 0.8016,
+          "abstain": 0.1508,
+          "n": 126,
+          "bpb": 0.026,
+          "ppl": 1.0649
+        },
+        "para": {
+          "mcq": 0.9048,
+          "acc": 0.8333,
+          "abstain": 0.1349,
+          "n": 126,
+          "bpb": 0.0235,
+          "ppl": 1.0584
+        },
+        "comp": {
+          "mcq": 0.1667,
+          "acc": 0.25,
+          "abstain": 0.0833,
+          "n": 24,
+          "bpb": 1.5848,
+          "ppl": 43.3313
+        },
+        "unseen": {
+          "mcq": 0.4,
+          "acc": 0.1,
+          "abstain": 0.65,
+          "n": 20,
+          "bpb": 0.0812,
+          "ppl": 1.2192
+        }
+      }
+    },
+    {
+      "id": "falcon3-7b",
+      "family": "Falcon3",
+      "params": 7.456,
+      "baseModel": "tiiuae/Falcon3-7B-Instruct",
+      "trainSeconds": 360,
+      "selectedIter": 750,
+      "bestValLoss": 0.005,
+      "adapterMB": 168.92,
+      "runId": "2026-07-29T01-40-15-820Z-bbee47fa",
+      "base": {
+        "mem": {
+          "mcq": 0.1825,
+          "acc": 0.0079,
+          "abstain": 0.9286,
+          "n": 126,
+          "bpb": 1.5163,
+          "ppl": 39.1057
+        },
+        "para": {
+          "mcq": 0.1825,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.4619,
+          "ppl": 34.2824
+        },
+        "comp": {
+          "mcq": 0.4583,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.3713,
+          "ppl": 281.3384
+        },
+        "unseen": {
+          "mcq": 0.25,
+          "acc": 0,
+          "abstain": 0.95,
+          "n": 20,
+          "bpb": 1.5071,
+          "ppl": 39.5463
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 1,
+          "acc": 0.9762,
+          "abstain": 0.0238,
+          "n": 126,
+          "bpb": 0.0063,
+          "ppl": 1.0154
+        },
+        "para": {
+          "mcq": 0.9921,
+          "acc": 0.9127,
+          "abstain": 0.0635,
+          "n": 126,
+          "bpb": 0.0624,
+          "ppl": 1.1629
+        },
+        "comp": {
+          "mcq": 0.2917,
+          "acc": 0.1667,
+          "abstain": 0.75,
+          "n": 24,
+          "bpb": 1.3457,
+          "ppl": 24.5422
+        },
+        "unseen": {
+          "mcq": 0.3,
+          "acc": 0.2,
+          "abstain": 0.5,
+          "n": 20,
+          "bpb": 0.1091,
+          "ppl": 1.3051
+        }
+      }
+    },
+    {
+      "id": "smollm2-135m-s2",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "trainSeconds": 44,
+      "selectedIter": 750,
+      "bestValLoss": 0.135,
+      "adapterMB": 18.68,
+      "runId": "2026-07-29T02-01-04-553Z-f9a346a7",
+      "base": {
+        "mem": {
+          "mcq": 0.2063,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.4,
+          "ppl": 19.4334
+        },
+        "para": {
+          "mcq": 0.2222,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.369,
+          "ppl": 18.1976
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.0004,
+          "ppl": 61.4588
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.4314,
+          "ppl": 21.9947
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.4048,
+          "acc": 0.3254,
+          "abstain": 0.3254,
+          "n": 126,
+          "bpb": 0.0824,
+          "ppl": 1.1908
+        },
+        "para": {
+          "mcq": 0.3413,
+          "acc": 0.2698,
+          "abstain": 0.1587,
+          "n": 126,
+          "bpb": 0.082,
+          "ppl": 1.1898
+        },
+        "comp": {
+          "mcq": 0.125,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 1.0598,
+          "ppl": 8.8619
+        },
+        "unseen": {
+          "mcq": 0.05,
+          "acc": 0.1,
+          "abstain": 0.4,
+          "n": 20,
+          "bpb": 0.1578,
+          "ppl": 1.4059
+        }
+      }
+    },
+    {
+      "id": "smollm2-135m-s3",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "trainSeconds": 44,
+      "adapterMB": 18.68,
+      "runId": "2026-07-29T02-02-46-735Z-97765220",
+      "base": {
+        "mem": {
+          "mcq": 0.2063,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.4,
+          "ppl": 19.4334
+        },
+        "para": {
+          "mcq": 0.2222,
+          "acc": 0,
+          "abstain": 1,
+          "n": 126,
+          "bpb": 1.369,
+          "ppl": 18.1976
+        },
+        "comp": {
+          "mcq": 0.3333,
+          "acc": 0,
+          "abstain": 1,
+          "n": 24,
+          "bpb": 2.0004,
+          "ppl": 61.4588
+        },
+        "unseen": {
+          "mcq": 0.2,
+          "acc": 0,
+          "abstain": 1,
+          "n": 20,
+          "bpb": 1.4314,
+          "ppl": 21.9947
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.4603,
+          "acc": 0.2698,
+          "abstain": 0.3571,
+          "n": 126,
+          "bpb": 0.0858,
+          "ppl": 1.1994
+        },
+        "para": {
+          "mcq": 0.4683,
+          "acc": 0.3254,
+          "abstain": 0.2222,
+          "n": 126,
+          "bpb": 0.0745,
+          "ppl": 1.1709
+        },
+        "comp": {
+          "mcq": 0.0833,
+          "acc": 0,
+          "abstain": 0.9583,
+          "n": 24,
+          "bpb": 1.0381,
+          "ppl": 8.475
+        },
+        "unseen": {
+          "mcq": 0.3,
+          "acc": 0.15,
+          "abstain": 0.3,
+          "n": 20,
+          "bpb": 0.1508,
+          "ppl": 1.3849
+        }
+      }
+    }
+  ],
+  "generatedAt": "2026-07-29T02:04:28.696Z"
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "Hyperparameter probe. Qwen diverged at lr 2e-4 / scale 20 while SmolLM2 trained fine — mlx applies `scale` raw, so effective step size grows with model width. Find one (lr, scale) that trains BOTH the widest and narrowest arm stably, then use it for the real matrix.",
+  "dataset": "datasets/kestrel",
+  "suites": { "mem": "test.jsonl" },
+  "shared": { "iters": 200, "loraRank": 16, "batchSize": 4, "maxSeqLen": 256, "numLayers": -1, "warmupSteps": 20, "seed": 42 },
+  "cells": [
+    { "id": "q05-lr2e4-s2",  "family": "Qwen2.5", "params": 0.494, "baseModel": "Qwen/Qwen2.5-0.5B-Instruct", "overrides": { "learningRate": 0.0002, "loraScale": 2 } },
+    { "id": "q05-lr5e5-s20", "family": "Qwen2.5", "params": 0.494, "baseModel": "Qwen/Qwen2.5-0.5B-Instruct", "overrides": { "learningRate": 0.00005, "loraScale": 20 } },
+    { "id": "q05-lr1e5-s20", "family": "Qwen2.5", "params": 0.494, "baseModel": "Qwen/Qwen2.5-0.5B-Instruct", "overrides": { "learningRate": 0.00001, "loraScale": 20 } },
+    { "id": "q05-lr1e4-s2",  "family": "Qwen2.5", "params": 0.494, "baseModel": "Qwen/Qwen2.5-0.5B-Instruct", "overrides": { "learningRate": 0.0001, "loraScale": 2 } },
+
+    { "id": "sm135-lr2e4-s2",  "family": "SmolLM2", "params": 0.135, "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct", "overrides": { "learningRate": 0.0002, "loraScale": 2 } },
+    { "id": "sm135-lr1e4-s2",  "family": "SmolLM2", "params": 0.135, "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct", "overrides": { "learningRate": 0.0001, "loraScale": 2 } }
+  ]
+}

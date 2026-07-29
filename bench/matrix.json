@@ -1,0 +1,97 @@
+{
+  "dataset": "datasets/kestrel",
+  "suites": {
+    "mem": "test.jsonl",
+    "para": "test_para.jsonl",
+    "comp": "test_comp.jsonl",
+    "unseen": "test_unseen.jsonl"
+  },
+  "shared": {
+    "iters": 800,
+    "learningRate": 1e-05,
+    "loraRank": 16,
+    "batchSize": 4,
+    "maxSeqLen": 256,
+    "numLayers": -1,
+    "warmupSteps": 20,
+    "seed": 42,
+    "loraScale": 20
+  },
+  "cells": [
+    {
+      "id": "qwen2.5-0.5b",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct"
+    },
+    {
+      "id": "qwen2.5-3b",
+      "family": "Qwen2.5",
+      "params": 3.09,
+      "baseModel": "Qwen/Qwen2.5-3B-Instruct"
+    },
+    {
+      "id": "qwen2.5-7b",
+      "family": "Qwen2.5",
+      "params": 7.62,
+      "baseModel": "Qwen/Qwen2.5-7B-Instruct"
+    },
+    {
+      "id": "smollm2-135m",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct"
+    },
+    {
+      "id": "smollm2-360m",
+      "family": "SmolLM2",
+      "params": 0.362,
+      "baseModel": "HuggingFaceTB/SmolLM2-360M-Instruct"
+    },
+    {
+      "id": "smollm2-1.7b",
+      "family": "SmolLM2",
+      "params": 1.711,
+      "baseModel": "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+    },
+    {
+      "id": "falcon3-1b",
+      "family": "Falcon3",
+      "params": 1.669,
+      "baseModel": "tiiuae/Falcon3-1B-Instruct"
+    },
+    {
+      "id": "falcon3-3b",
+      "family": "Falcon3",
+      "params": 3.228,
+      "baseModel": "tiiuae/Falcon3-3B-Instruct"
+    },
+    {
+      "id": "falcon3-7b",
+      "family": "Falcon3",
+      "params": 7.456,
+      "baseModel": "tiiuae/Falcon3-7B-Instruct"
+    },
+    {
+      "id": "smollm2-135m-s2",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "overrides": {
+        "seed": 7
+      },
+      "replicate": true
+    },
+    {
+      "id": "smollm2-135m-s3",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "overrides": {
+        "seed": 99
+      },
+      "replicate": true
+    }
+  ],
+  "_comment": "Effective LoRA step size is learningRate * loraScale (mlx applies scale raw: y + scale*z). 2e-4 * 20 = 4e-3 diverged on Qwen/Falcon (loss spiked to 13 by iter 30); 1e-5 * 20 = 2e-4 is mlx's own paired default and trains every width stably. See bench/results-diverged/ for the failed run."
+}

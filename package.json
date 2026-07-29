@@ -9,6 +9,8 @@
   },
   "scripts": {
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "bench:data": "tsx bench/gen-dataset.ts",
+    "bench": "tsx bench/run-matrix.ts",
     "preview": "tsx src/preview/server.ts",
     "typecheck": "tsc --noEmit"
   },
