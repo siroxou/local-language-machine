@@ -522,7 +522,7 @@ wss.on("connection", (ws) => {
 
 // Open the port first, then load the model in the background — a big model can
 // take several seconds and shouldn't delay the server being reachable.
-http.listen(PORT, async () => {
+http.listen(PORT, "127.0.0.1", async () => {
 	console.log(`\n  ▸ Preview ready:  http://localhost:${PORT}`);
 	console.log("  Local Language Machine — loading cached model…");
 	const loaded = await orch.autoload().catch((e) => {

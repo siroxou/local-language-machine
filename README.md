@@ -12,7 +12,7 @@ network dependency. Open a folder, load a model, and start pairing.
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 ![Offline‑first](https://img.shields.io/badge/offline--first-100%25-6E56CF)
 ![Inference](https://img.shields.io/badge/inference-llama.cpp-orange)
-![Tests](https://img.shields.io/badge/tests-65%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-76%20passing-2ea44f)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
 <img src="docs/screenshots/overview.png" alt="Local Language Machine — the main IDE: file explorer, editor, and AI assistant" width="900" />
@@ -137,27 +137,57 @@ sequenceDiagram
 
 ---
 
-## Quick start
+## Install
+
+Grab the build for your platform from the [latest release](https://github.com/siroxou/local-language-machine/releases/latest):
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `.dmg` — open it and drag the app to Applications |
+| Windows | `.exe` installer |
+| Linux | `.AppImage` — `chmod +x` and run |
+
+Launch it, then load a model from the Assistant panel. The first load downloads the model once
+into `~/.local-language-machine` and caches it there; nothing else touches the network.
+
+The app checks for a newer release on launch and points you at the download page when one exists.
+
+> **macOS first launch:** the build is not signed with a paid Apple developer certificate, so
+> Gatekeeper will refuse the first open. Right‑click the app → **Open** → **Open**. Once only.
+
+> Move the app out of `~/Downloads` before running it. macOS otherwise launches downloaded apps
+> from a read‑only temporary mount.
+
+---
+
+## Run from source
 
 > **Requirements:** Node ≥ 22. A GPU is used automatically when present, but everything runs on CPU too.
 
 ```bash
-# 1. Install dependencies (the inference engine is bundled — no extra services)
-npm install
-
-# 2. Launch the app (opens the local preview server)
-npm run preview
-
-# 3. Open the printed http://localhost:… URL, then load a model from the Assistant panel.
-#    The first load downloads the model once into ~/.local-language-machine and caches it.
+npm install     # the inference engine is bundled — no extra services
+npm run preview # serves the UI at http://localhost:7433
 ```
 
 Other scripts:
 
 ```bash
-npm test        # run the test suite (node --test)
+npm test            # run the test suite
 npm run typecheck   # strict TypeScript, no emit
+npm run app         # build, then run the desktop shell without packaging
+npm run pack        # build a local .app in release/ (no publishing)
 ```
+
+### Cutting a release
+
+```bash
+npm version patch
+GH_TOKEN=<token> npm run release   # builds and publishes the macOS artifact
+git push --follow-tags             # CI builds and attaches Windows + Linux
+```
+
+Windows and Linux artifacts are built by CI rather than locally, because the inference engine
+ships per‑platform prebuilt binaries that only install on their matching host.
 
 ---
 

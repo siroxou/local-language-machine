@@ -899,7 +899,7 @@ const onMsg = (fn) => listeners.push(fn);
 const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
 function connect() {
 	ws = new WebSocket(`${proto}://${location.host}`);
-	ws.onopen = () => { banner.classList.remove("show"); send({ type: "status" }); send({ type: "tree" }); send({ type: "open", path: "src/core/orchestrator.ts" }); };
+	ws.onopen = () => { banner.classList.remove("show"); send({ type: "status" }); send({ type: "tree" }); };
 	ws.onclose = () => { banner.classList.add("show"); clearTimeout(reconnect); reconnect = setTimeout(connect, 1400); };
 	ws.onmessage = (e) => { const m = JSON.parse(e.data); listeners.forEach((fn) => fn(m)); };
 }
@@ -1429,13 +1429,14 @@ function renderColorPickers() {
 // ————— custom code background (sandboxed iframe; the plain gradient is the default) —————
 const DEFAULT_BG_CODE = `<style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0b0710}
-  video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
-</style>
-<video autoplay loop muted playsinline>
-  <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260210_031346_d87182fb-b0af-4273-84d1-c6fd17d6bf0f.mp4" type="video/mp4">
-</video>`;
+  body{background:
+    radial-gradient(60% 60% at 30% 20%,#2a1250,transparent),
+    radial-gradient(50% 50% at 75% 80%,#0f3b4a,transparent),#0b0710;
+    animation:drift 24s ease-in-out infinite alternate}
+  @keyframes drift{to{background-position:20% 10%,-15% -10%,0 0}}
+</style>`;
 const bgFrame = $("bgFrame");
-let bgMode = "gradient", bgCode = DEFAULT_BG_CODE; // default = plain gradient; the video sits in the textarea as a ready example (needs network)
+let bgMode = "gradient", bgCode = DEFAULT_BG_CODE; // default = plain gradient; this sits in the textarea as a ready example to edit
 try { bgMode = localStorage.getItem("llm-bg-mode") || "gradient"; } catch {}
 try { const c = localStorage.getItem("llm-bg-code"); if (c != null) bgCode = c; } catch {}
 function applyBgMode(mode) {

@@ -15,14 +15,17 @@ export interface TreeNode {
 	children?: TreeNode[];
 }
 
-export async function tree(root: string, rel = "", depth = 0): Promise<TreeNode[]> {
-	if (depth > 7) return [];
+// `budget` is shared across the whole recursion: without it, pointing the workspace
+// at a home directory walks ~/Library and iCloud and ships megabytes to the editor.
+export async function tree(root: string, rel = "", depth = 0, budget = { n: 20_000 }): Promise<TreeNode[]> {
+	if (depth > 7 || budget.n <= 0) return [];
 	const entries = await readdir(resolveInRoot(root, rel || "."), { withFileTypes: true });
 	const nodes: TreeNode[] = [];
 	for (const e of entries) {
 		if (SKIP.has(e.name)) continue;
+		if (--budget.n <= 0) break; // flat cap; swap for a per-directory quota if truncation looks lopsided
 		const path = rel ? `${rel}/${e.name}` : e.name;
-		if (e.isDirectory()) nodes.push({ name: e.name, path, dir: true, children: await tree(root, path, depth + 1) });
+		if (e.isDirectory()) nodes.push({ name: e.name, path, dir: true, children: await tree(root, path, depth + 1, budget) });
 		else nodes.push({ name: e.name, path, dir: false });
 	}
 	// Directories first, then files, each alphabetical.
