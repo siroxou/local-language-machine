@@ -6,90 +6,46 @@
 <title>Local Language Machine</title>
 <style>
 	:root {
-		/* 8pt spatial grid */
-		--s1: 8px; --s2: 16px; --s3: 24px; --s4: 32px; --s-half: 4px;
-		/* continuous-curve squircle radii */
-		--r-lg: 26px; --r-md: 18px; --r-sm: 12px; --r-xs: 9px;
-		/* type */
-		--ui: -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-		--mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+		/* spacing */
+		--s1: 8px; --s2: 16px; --s3: 24px; --s-half: 4px;
+		/* radii — design token --radius: 0.5rem */
+		--radius: 8px;
+		--r-lg: 10px; --r-md: 8px; --r-sm: 6px; --r-xs: 4px;
+		/* type — Merriweather / Source Serif 4 / JetBrains Mono.
+		   Named first, system serif/mono behind them. The app is offline by
+		   construction, so no webfont link — bundle woff2 under public/fonts/ to pixel-match. */
+		--ui: Merriweather, "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
+		--mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 		--fz: 13px; --lh: 1.6;
-		/* ink */
-		--tx: #edeff3; --tx-dim: #9aa3b2; --tx-faint: #666f80;
-		--ac: #0a84ff; --ac-soft: #0a84ff33;
-		/* themeable background + ambient glows (the Customize panel overrides these) */
-		--bg: #06070a; --glow1: #0a84ff; --glow2: #5e5ce6; --glow3: #30d1c8;
-		/* glass — liquid-glass tunables (the Customize panel overrides these) */
-		--glass: rgba(255,255,255,.045);
-		--glass-2: rgba(255,255,255,.028);
-		--brd-a: 0; --brd: rgba(255,255,255,var(--brd-a));
-		--brd-soft: rgba(255,255,255,.055);
-		--glass-hi: .40; --hi: rgba(255,255,255,var(--glass-hi));
-		--glass-blur: 9px; --glass-sat: 197%;
-		--blur: saturate(var(--glass-sat)) blur(var(--glass-blur));
-		--aberration: 1px; /* chromatic edge separation */
-		--glass-refract: 16.7px; /* static edge-refraction depth */
-		--glass-darken: 0; /* dark tint over the glass surface */
-		/* normal (non-fractal) ambient gradient — three theme glows over the bg, updates live with the color pickers */
-		--grad:
-			radial-gradient(100% 85% at 12% -5%, color-mix(in srgb, var(--glow1) 60%, transparent), transparent 55%),
-			radial-gradient(95% 80% at 90% 12%, color-mix(in srgb, var(--glow2) 50%, transparent), transparent 55%),
-			radial-gradient(120% 120% at 50% 115%, color-mix(in srgb, var(--glow3) 40%, transparent), transparent 60%),
-			var(--bg);
-		/* syntax — Apple / Xcode-dark palette */
-		--s-cm: #7c8aa0; --s-kw: #ff7ab2; --s-st: #ff8170; --s-nu: #d9c97c;
-		--s-fn: #6bd4ff; --s-pn: #aeb6c4; --s-id: #e6edf3;
+		/* ink — warm cream on olive */
+		--tx: #f0ebdd; --tx-dim: #b5ad9b; --tx-faint: #8a8271;
+		--ac: #8a9f7b; --ac-soft: #8a9f7b33; --ac-fg: #26251b; /* sage primary — dark ink on top */
+		--warn: #a18f5c; /* in-progress states */
+		/* surfaces — flat, opaque, one step apart. No blur, no glow, no gradients. */
+		--bg: #3a3529;      /* page */
+		--card: #413c33;    /* panels, dialogs, menus */
+		--card-2: #4a4439;  /* inputs, hover fills */
+		--card-3: #524b3f;  /* pressed / selected fills */
+		--brd: #5a5345; --brd-soft: #4e4839;
+		/* syntax — sage / tan / clay */
+		--s-cm: #7e7768; --s-kw: #a18f5c; --s-st: #9db18c; --s-nu: #c6ad72;
+		--s-fn: #8a9f7b; --s-pn: #b5ad9b; --s-id: #ede8da;
 	}
 	* { box-sizing: border-box; }
 	html, body { height: 100%; margin: 0; overflow: hidden; }
 	body {
 		font-family: var(--ui); color: var(--tx); background: var(--bg);
-		-webkit-font-smoothing: antialiased; letter-spacing: .1px;
-		transition: background .6s ease;
+		-webkit-font-smoothing: antialiased; letter-spacing: 0;
 	}
 
-	/* ——— ambient gradient backdrop — plain CSS multi-glow gradient, compositor-only drift ——— */
-	.bg { position: fixed; inset: -8%; z-index: 0; background: var(--grad);
-		will-change: transform; animation: bgDrift 44s ease-in-out infinite alternate; }
-	@keyframes bgDrift { from { transform: translate3d(0,0,0) scale(1.06); } to { transform: translate3d(2%, -2.4%, 0) scale(1.13); } }
+	/* Backdrop layer. Flat by default; the Background tab can still swap in custom code,
+	   which renders in #bgFrame above this. */
+	.bg { position: fixed; inset: 0; z-index: 0; background: var(--bg); }
 
-	/* ——— AI-status reactive aura ——— idle: subtle drift above · working: amplified swirl · done: green flash */
-	.aura { position: fixed; inset: -25%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1s ease;
-		background: conic-gradient(from 0deg, var(--glow1), var(--glow2), var(--glow3), var(--glow1));
-		filter: blur(130px) saturate(150%); }
-	body.working .aura { opacity: .5; animation: auraSpin 9s linear infinite, auraBreath 3.2s ease-in-out infinite; }
-	@keyframes auraSpin { to { transform: rotate(360deg); } }
-	@keyframes auraBreath { 50% { filter: blur(95px) saturate(210%); } }
-	.flash { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0;
-		background: radial-gradient(circle at 50% 42%, #30d158 0%, transparent 62%); }
-	body.done .flash { animation: flashGreen 1.2s ease-out 1; }
-	@keyframes flashGreen { 0% { opacity: 0; } 22% { opacity: .6; } 100% { opacity: 0; } }
-
-	/* ——— escape hatches: reduced-motion + Lite (low-end) mode ——— */
-	@media (prefers-reduced-motion: reduce) { .bg, body.working .aura { animation: none !important; } }
-	body.lite .bg { animation: none; }
-	body.lite .aura { display: none; }
-	/* Lite drops the GPU-costly backdrop blur to a plain saturate — panels stay legible, cheap to composite */
-	body.lite .glass, body.lite .ctx, body.lite .findbar, body.lite #toast {
-		backdrop-filter: saturate(var(--glass-sat)); -webkit-backdrop-filter: saturate(var(--glass-sat)); }
-
-	/* ——— glass surface — cheap CSS liquid glass (blur+saturate + static edge refraction, no per-frame SVG) ——— */
-	.glass {
-		background: linear-gradient(rgba(0,0,0,var(--glass-darken)), rgba(0,0,0,var(--glass-darken))), var(--glass);
-		backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-		border: 1px solid var(--brd); border-radius: var(--r-lg); position: relative;
-		box-shadow: 0 8px 40px rgba(0,0,0,.42), inset 0 1px 0 var(--hi),
-			inset 0 var(--glass-refract) calc(var(--glass-refract) * 1.6) calc(-1 * var(--glass-refract)) rgba(255,255,255,.12),
-			inset 0 calc(-1 * var(--glass-refract)) calc(var(--glass-refract) * 1.6) calc(-1 * var(--glass-refract)) rgba(0,0,0,.30),
-			inset 0 0 0 .5px rgba(255,255,255,.02);
-	}
-	.glass::before { /* mercury sheen across the top */
-		content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-		background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, transparent 22%);
-	}
-	.glass::after { /* chromatic aberration — cyan/magenta edge separation (invisible at 0) */
-		content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .55;
-		box-shadow: inset var(--aberration) 0 1px -1px rgba(0,225,255,.6), inset calc(-1 * var(--aberration)) 0 1px -1px rgba(255,0,120,.6);
+	/* ——— panel surface — flat fill, 1px border, no blur and no shadow ——— */
+	.glass, .dialog, .settings, .ctx, .palette, .findbar {
+		background: var(--card); border: 1px solid var(--brd); border-radius: var(--radius);
+		position: relative;
 	}
 
 	/* ——— app layout: title / (files · editor · agent) / status ——— */
@@ -107,20 +63,20 @@
 
 	/* ——— title bar ——— */
 	.title { grid-area: title; display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s2); }
-	.brand { display: flex; align-items: center; gap: var(--s1); font-weight: 600; font-size: 14px; letter-spacing: .2px; }
-	.brand .mark { width: 24px; height: 24px; border-radius: var(--r-xs);
-		background: linear-gradient(140deg, #0a84ff, #5e5ce6 55%, #ff375f); display: grid; place-items: center;
-		color: #fff; font-size: 13px; box-shadow: 0 2px 10px #0a84ff55, inset 0 1px 0 rgba(255,255,255,.4); }
+	.brand { display: flex; align-items: center; gap: var(--s1); font-weight: 700; font-size: 14px; white-space: nowrap; }
+	.brand .mark { width: 22px; height: 22px; border-radius: var(--r-xs);
+		background: var(--ac); display: grid; place-items: center;
+		color: var(--ac-fg); font-size: 13px; }
 	.grow { flex: 1; }
 	.seg { display: flex; gap: var(--s-half); padding: var(--s-half); border-radius: var(--r-sm);
-		background: var(--glass-2); border: 1px solid var(--brd-soft); }
+		background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.seg button { font: inherit; font-size: 12px; color: var(--tx-dim); border: 0; background: transparent;
 		padding: 5px 11px; border-radius: var(--r-xs); cursor: pointer; transition: .2s cubic-bezier(.2,.8,.2,1); }
 	.seg button:hover { color: var(--tx); }
-	.seg button.on { color: #fff; background: rgba(255,255,255,.1); box-shadow: inset 0 1px 0 var(--hi); }
+	.seg button.on { color: var(--tx); background: var(--card-3); }
 	.badge { font-size: 11.5px; color: var(--tx-dim); padding: 5px 11px; border-radius: 999px;
-		background: var(--glass-2); border: 1px solid var(--brd-soft); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-	.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #30d158; box-shadow: 0 0 8px #30d158; }
+		background: var(--card-2); border: 1px solid var(--brd-soft); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+	.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #8a9f7b; }
 
 	/* ——— panels ——— */
 	.files { grid-area: files; overflow: hidden; display: flex; flex-direction: column; transition: opacity .3s; }
@@ -132,8 +88,8 @@
 	#tree { overflow-y: auto; padding: var(--s-half) var(--s1) var(--s2); flex: 1; contain: paint; }
 	.row { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: var(--r-xs);
 		cursor: pointer; color: var(--tx-dim); font-size: 13px; transition: .16s ease; user-select: none; white-space: nowrap; }
-	.row:hover { background: rgba(255,255,255,.05); color: var(--tx); }
-	.row.active { background: var(--ac-soft); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+	.row:hover { background: var(--card-2); color: var(--tx); }
+	.row.active { background: var(--ac-soft); color: var(--tx); }
 	.row .tw { width: 12px; text-align: center; color: var(--tx-faint); font-size: 10px; flex: 0 0 auto; transition: transform .2s; }
 	.row .ic { width: 15px; text-align: center; flex: 0 0 auto; opacity: .8; font-size: 12px; }
 	.row .nm { overflow: hidden; text-overflow: ellipsis; }
@@ -145,10 +101,10 @@
 	.tab { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-sm) var(--r-sm) 0 0;
 		font-size: 12.5px; color: var(--tx-dim); cursor: pointer; white-space: nowrap; position: relative;
 		background: transparent; transition: .18s ease; border: 1px solid transparent; border-bottom: none; }
-	.tab:hover { color: var(--tx); background: rgba(255,255,255,.03); }
-	.tab.active { color: #fff; background: rgba(255,255,255,.06); border-color: var(--brd-soft); box-shadow: inset 0 1px 0 var(--hi); }
+	.tab:hover { color: var(--tx); background: var(--card-2); }
+	.tab.active { color: var(--tx); background: var(--card-2); border-color: var(--brd-soft); }
 	.tab .x { width: 15px; height: 15px; border-radius: 5px; display: grid; place-items: center; font-size: 13px; opacity: .55; }
-	.tab .x:hover { background: rgba(255,255,255,.14); opacity: 1; }
+	.tab .x:hover { background: var(--card-3); opacity: 1; }
 	.tab .dirty { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-dim); }
 	.edit-region { flex: 1; display: grid; grid-template-columns: auto minmax(0,1fr); overflow: hidden; }
 	.mono { font-family: var(--mono); font-size: var(--fz); line-height: var(--lh); tab-size: 2; -moz-tab-size: 2; }
@@ -161,7 +117,7 @@
 	}
 	.hl { pointer-events: none; overflow: hidden; color: var(--s-id); }
 	textarea#code { color: transparent; caret-color: var(--ac); resize: none; }
-	textarea#code::selection { background: #0a84ff55; }
+	textarea#code::selection { background: #8a9f7b55; }
 	.hl .cm { color: var(--s-cm); font-style: italic; }
 	.hl .kw { color: var(--s-kw); }
 	.hl .st { color: var(--s-st); }
@@ -177,64 +133,124 @@
 	.dock-tabs { display: flex; align-items: center; gap: var(--s-half); padding: var(--s1) var(--s1) 0; flex: 0 0 auto; }
 	.dock-tab { font: inherit; font-size: 12px; color: var(--tx-dim); border: 0; background: transparent; padding: 6px 12px; border-radius: var(--r-xs); cursor: pointer; transition: .18s ease; }
 	.dock-tab:hover { color: var(--tx); }
-	.dock-tab.on { color: #fff; background: rgba(255,255,255,.07); box-shadow: inset 0 1px 0 var(--hi); }
+	.dock-tab.on { color: var(--tx); background: var(--card-2); }
 	.dock-x { margin-left: auto; font: inherit; font-size: 16px; color: var(--tx-dim); background: transparent; border: 0; cursor: pointer; width: 26px; height: 26px; border-radius: var(--r-xs); transition: .16s; }
-	.dock-x:hover { background: rgba(255,255,255,.08); color: var(--tx); }
+	.dock-x:hover { background: var(--card-2); color: var(--tx); }
 	.dock-body { flex: 1; overflow: hidden; position: relative; }
 	.dock-body > div { position: absolute; inset: 0; display: flex; flex-direction: column; }
 	.dock-body > [hidden] { display: none; }
 	/* terminal */
-	.term-out { flex: 1; overflow-y: auto; padding: var(--s1) var(--s2); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #c4cddb; }
-	.term-out .p { color: #56d364; }
-	.term-out .cmd { color: #fff; }
-	.term-out .err { color: #ff8170; }
+	.term-out { flex: 1; overflow-y: auto; padding: var(--s1) var(--s2); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #ddd6c6; }
+	.term-out .p { color: #9db18c; }
+	.term-out .cmd { color: var(--tx); }
+	.term-out .err { color: #b5766a; }
 	.term-line { display: flex; align-items: center; gap: 8px; padding: var(--s-half) var(--s2) var(--s1); flex: 0 0 auto; }
-	.term-prompt { color: #56d364; font-size: 12.5px; flex: 0 0 auto; white-space: nowrap; }
+	.term-prompt { color: #9db18c; font-size: 12.5px; flex: 0 0 auto; white-space: nowrap; }
 	#termInput { flex: 1; background: transparent; border: 0; outline: none; color: var(--tx); font-size: 12.5px; caret-color: var(--ac); }
 	/* browser */
 	.browser-bar { display: flex; align-items: center; gap: 6px; padding: var(--s1); flex: 0 0 auto; }
-	.browser-bar button { font: inherit; font-size: 14px; color: var(--tx-dim); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); width: 30px; height: 30px; cursor: pointer; transition: .16s; }
+	.browser-bar button { font: inherit; font-size: 14px; color: var(--tx-dim); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); width: 30px; height: 30px; cursor: pointer; transition: .16s; }
 	.browser-bar button:hover { color: var(--tx); border-color: var(--brd); }
-	#brUrl { flex: 1; height: 30px; background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 0 12px; color: var(--tx); font-size: 12px; outline: none; }
+	#brUrl { flex: 1; height: 30px; background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 0 12px; color: var(--tx); font-size: 12px; outline: none; }
 	#brUrl:focus { border-color: var(--ac); }
-	#brGo { width: auto !important; padding: 0 15px; color: #fff !important; background: linear-gradient(140deg,#0a84ff,#0a6cff) !important; border-color: var(--ac) !important; font-weight: 600; }
+	#brGo { width: auto !important; padding: 0 15px; color: var(--ac-fg) !important; background: var(--ac) !important; border-color: var(--ac) !important; font-weight: 600; }
 	#brFrame { flex: 1; border: 0; margin: 0 var(--s1) var(--s1); border-radius: var(--r-sm); background: #fff; }
 
 	/* ——— agent ——— */
-	#models { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 var(--s2) var(--s1); flex: 0 0 auto; }
-	.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 5px 10px; border-radius: 999px;
-		border: 1px solid var(--brd-soft); background: var(--glass-2); color: var(--tx); cursor: pointer;
-		position: relative; overflow: hidden; transition: .2s cubic-bezier(.2,.8,.2,1); }
-	.chip:hover { border-color: var(--brd); transform: translateY(-1px); }
-	.chip.loaded { border-color: var(--ac); background: #0a84ff26; cursor: default; }
-	.chip .k { color: var(--tx-faint); }
-	.chip.loaded .k { color: var(--ac); }
-	.chip .bar { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--ac); width: 0; box-shadow: 0 0 8px var(--ac); transition: width .3s; }
+	/* ——— model picker — trigger sits in the composer, popover opens upward ——— */
+	.mp-trigger { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; min-width: 0;
+		font: inherit; font-size: 12.5px; color: var(--tx); background: var(--card-2);
+		border: 1px solid var(--brd); border-radius: 999px; padding: 6px 12px; cursor: pointer; transition: .15s; }
+	.mp-trigger:hover { background: var(--card-3); }
+	.mp-trigger .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mp-trigger .caret { color: var(--tx-faint); font-size: 10px; flex: 0 0 auto; }
+	.mp-trigger .mark { color: var(--ac); flex: 0 0 auto; }
+
+	.mp-pop { position: fixed; z-index: 60; display: none; overflow: hidden;
+		border: 1px solid var(--brd); border-radius: var(--radius); background: #26231a;
+		box-shadow: 0 10px 34px rgba(0,0,0,.5); }
+	.mp-pop.show { display: block; }
+	#modelFx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+	/* Scrim over the animation — the rows have to stay readable while it moves underneath. */
+	.mp-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 286px minmax(0,1fr);
+		background: linear-gradient(96deg, rgba(38,35,26,.96) 0%, rgba(38,35,26,.90) 46%, rgba(38,35,26,.78) 100%); }
+	.mp-list-col { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--brd); }
+	.mp-search { flex: 0 0 auto; padding: var(--s1); border-bottom: 1px solid var(--brd); }
+	.mp-search input { width: 100%; font: inherit; font-size: 12.5px; color: var(--tx); background: var(--card-2);
+		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 8px 11px; outline: none; }
+	.mp-search input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
+	#mpList { overflow-y: auto; max-height: 300px; padding: var(--s-half); }
+	.mp-item { display: flex; align-items: center; gap: var(--s1); padding: 8px 10px; border-radius: var(--r-sm);
+		cursor: pointer; transition: .12s; }
+	.mp-item:hover, .mp-item.sel { background: var(--card-2); }
+	.mp-item .txt { min-width: 0; flex: 1; }
+	.mp-item .nm { font-size: 13px; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mp-item .own { font-size: 11px; color: var(--tx-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mp-item .st { flex: 0 0 auto; font-family: var(--mono); font-size: 10px; color: var(--tx-faint); text-align: right; }
+	.mp-item.on .nm { font-weight: 700; }
+	.mp-item.on .st { color: var(--ac); }
+	.mp-empty { padding: var(--s3) var(--s2); text-align: center; font-size: 12.5px; color: var(--tx-faint); }
+	.mp-add { flex: 0 0 auto; font: inherit; font-size: 12px; color: var(--tx-dim); text-align: left;
+		background: transparent; border: 0; border-top: 1px solid var(--brd); padding: 10px var(--s2); cursor: pointer; transition: .15s; }
+	.mp-add:hover { color: var(--tx); background: var(--card-2); }
+
+	.mp-detail { padding: var(--s2); display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+	.mp-d-name { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mp-d-own { font-size: 12px; color: var(--tx-dim); display: flex; align-items: center; gap: 6px; }
+	.mp-d-own .mark { color: var(--ac); }
+	.mp-d-desc { font-size: 12.5px; color: var(--tx-dim); line-height: 1.5; }
+	.mp-bars { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1) var(--s2); margin-top: var(--s-half); }
+	.mp-bar-h { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 9.5px;
+		letter-spacing: .06em; text-transform: uppercase; color: var(--tx-faint); margin-bottom: 5px; }
+	.mp-bar-h .v { margin-left: auto; color: var(--tx-dim); text-transform: none; letter-spacing: 0; }
+	.mp-pips { display: flex; gap: 3px; }
+	.mp-pips i { flex: 1; height: 9px; border-radius: 2px; background: var(--card-3); }
+	.mp-pips i.on { background: var(--ac); }
+	.mp-pips.warm i.on { background: var(--warn); }
+	.mp-pips.unknown i { background: var(--card-2); }
+	.mp-conf { margin-top: var(--s1); padding-top: var(--s2); border-top: 1px solid var(--brd); }
+	.mp-conf-h { font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase;
+		color: var(--tx-faint); margin-bottom: var(--s1); }
+	.mp-conf-row { font-size: 12.5px; color: var(--tx-dim); margin-bottom: 7px; }
+	.mp-seg { display: flex; gap: 6px; }
+	.mp-seg button { flex: 1; font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2);
+		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 8px 6px; cursor: pointer; transition: .15s; }
+	.mp-seg button:hover { border-color: var(--brd); }
+	.mp-seg button.on { background: var(--ac); color: var(--ac-fg); border-color: var(--ac); font-weight: 700; }
+	.mp-actions { display: flex; gap: var(--s1); margin-top: var(--s2); }
+	.mp-actions button { flex: 1; font-size: 12.5px; padding: 9px 12px; }
+	.mp-hint { font-size: 11.5px; color: var(--tx-faint); }
+	@media (max-width: 760px) { .mp-grid { grid-template-columns: minmax(0,1fr); } .mp-detail { display: none; } }
 	#chat { flex: 1; overflow-y: auto; padding: var(--s1) var(--s2); display: flex; flex-direction: column; gap: var(--s1); contain: paint; }
 	.msg { display: flex; flex-direction: column; gap: 6px; max-width: 100%; animation: rise .3s cubic-bezier(.2,.9,.3,1); }
 	@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 	.msg.user { align-items: flex-end; }
 	.bubble { padding: 9px 13px; border-radius: var(--r-md); font-size: 13px; line-height: 1.5; white-space: pre-wrap;
 		word-wrap: break-word; max-width: 92%; }
-	.msg.user .bubble { background: linear-gradient(135deg, #0a84ff, #0a6cff); color: #fff; border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md); box-shadow: 0 4px 16px #0a84ff44; }
-	.msg.assistant .bubble { background: var(--glass); border: 1px solid var(--brd-soft); box-shadow: inset 0 1px 0 var(--hi); }
+	.msg.user .bubble { background: var(--ac); color: var(--ac-fg); border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md); }
+	.msg.assistant .bubble { background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.cursor::after { content: "▋"; color: var(--ac); animation: blink 1.1s steps(2) infinite; margin-left: 1px; }
 	@keyframes blink { 50% { opacity: 0; } }
-	.tool { border: 1px solid rgba(48,209,88,.34); background: rgba(48,209,88,.08); border-radius: var(--r-sm);
+	.tool { border: 1px solid rgba(138,159,123,.34); background: rgba(138,159,123,.08); border-radius: var(--r-sm);
 		font-family: var(--mono); font-size: 11.5px; overflow: hidden; }
 	.tool .head { display: flex; align-items: center; gap: 7px; padding: 7px 10px; cursor: pointer; }
-	.tool .head .name { color: #56d364; font-weight: 600; }
+	.tool .head .name { color: #9db18c; font-weight: 600; }
 	.tool .head .st { margin-left: auto; color: var(--tx-faint); font-size: 10.5px; }
-	.tool pre { margin: 0; padding: 8px 10px; border-top: 1px solid rgba(48,209,88,.24); white-space: pre-wrap;
+	.tool pre { margin: 0; padding: 8px 10px; border-top: 1px solid rgba(138,159,123,.24); white-space: pre-wrap;
 		word-break: break-word; color: var(--tx-dim); max-height: 200px; overflow: auto; }
 	.tool.collapsed pre { display: none; }
-	.composer { flex: 0 0 auto; padding: var(--s1) var(--s2) var(--s2); display: flex; gap: var(--s1); align-items: flex-end; }
-	.composer textarea { flex: 1; resize: none; font: inherit; font-size: 13px; color: var(--tx); background: var(--glass-2);
-		border: 1px solid var(--brd-soft); border-radius: var(--r-md); padding: 10px 13px; max-height: 140px; outline: none; transition: .2s; }
-	.composer textarea:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
-	#send { font: inherit; border: 0; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; flex: 0 0 auto;
-		background: linear-gradient(140deg, #0a84ff, #0a6cff); color: #fff; font-size: 17px;
-		box-shadow: 0 4px 16px #0a84ff55, inset 0 1px 0 rgba(255,255,255,.4); transition: .2s cubic-bezier(.2,.8,.2,1); }
+	/* Prompt box on top, model picker bottom-left, send bottom-right. */
+	.composer { flex: 0 0 auto; margin: var(--s1) var(--s2) var(--s2); padding: var(--s1);
+		display: flex; flex-direction: column; gap: var(--s1);
+		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-md); transition: .2s; }
+	.composer:focus-within { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
+	.composer textarea { resize: none; font: inherit; font-size: 13px; color: var(--tx); background: transparent;
+		border: 0; padding: 6px 5px 0; min-height: 46px; max-height: 140px; outline: none; }
+	.composer-bar { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
+	.composer-bar .grow { flex: 1; }
+	#send { font: inherit; border: 0; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; flex: 0 0 auto;
+		background: var(--ac); color: var(--ac-fg); font-size: 15px;
+		transition: .2s cubic-bezier(.2,.8,.2,1); }
 	#send:hover { transform: translateY(-1px) scale(1.04); }
 	#send:active { transform: scale(.94); }
 	#send:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
@@ -251,31 +267,31 @@
 	#stModel { color: var(--tx); }
 	.st-tune { font-size: 13px; line-height: 1; color: var(--tx-dim); background: transparent; border: 0; cursor: pointer;
 		width: 22px; height: 22px; border-radius: var(--r-xs); transition: .15s; }
-	.st-tune:hover { color: var(--tx); background: rgba(255,255,255,.08); }
+	.st-tune:hover { color: var(--tx); background: var(--card-2); }
 
 	/* ——— confirm modal ——— */
 	.overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
-		padding: var(--s3); background: rgba(4,6,10,.55); backdrop-filter: blur(6px); }
+		padding: var(--s3); background: rgba(22,20,14,.72); }
 	.overlay.show { display: flex; animation: fade .25s ease; }
 
 	/* ——— onboarding (first-run walkthrough) ——— */
 	.onb { max-width: 560px; width: 92%; }
 	.onb-hero { text-align: center; }
-	.onb-mark { font-size: 32px; color: var(--ac); filter: drop-shadow(0 0 14px var(--ac-soft)); line-height: 1.1; }
+	.onb-mark { font-size: 32px; color: var(--ac); line-height: 1.1; }
 	.onb h3 { text-align: center; margin: 6px 0 4px; }
 	.onb .sub { text-align: center; }
 	.onb-body { margin: var(--s2) 0 2px; min-height: 152px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
 	.onb-pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-	.onb-pill { font-size: 12px; color: var(--tx-dim); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 5px 12px; }
-	.onb-feat { display: flex; gap: 11px; align-items: flex-start; padding: 9px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); }
+	.onb-pill { font-size: 12px; color: var(--tx-dim); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 5px 12px; }
+	.onb-feat { display: flex; gap: 11px; align-items: flex-start; padding: 9px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.onb-feat .ic { font-size: 16px; flex: 0 0 22px; text-align: center; }
 	.onb-feat b { font-size: 13px; color: var(--tx); }
 	.onb-feat .d { font-size: 12px; color: var(--tx-dim); margin-top: 1px; line-height: 1.4; }
 	.onb-model { text-align: center; display: flex; flex-direction: column; gap: var(--s2); align-items: center; }
 	.onb-model .big { font-size: 13px; color: var(--tx-dim); max-width: 410px; line-height: 1.5; }
-	.onb-cta { font: inherit; font-weight: 600; font-size: 13px; color: #fff; background: var(--ac); border: 0; border-radius: var(--r-md); padding: 10px 20px; cursor: pointer; transition: .15s; }
-	.onb-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--ac-soft); }
-	.onb-ready { color: #43d17a; font-weight: 600; font-size: 14px; }
+	.onb-cta { font: inherit; font-weight: 600; font-size: 13px; color: var(--ac-fg); background: var(--ac); border: 0; border-radius: var(--r-md); padding: 10px 20px; cursor: pointer; transition: .15s; }
+	.onb-cta:hover { background: #96aa87; }
+	.onb-ready { color: #9db18c; font-weight: 600; font-size: 14px; }
 	.onb-foot { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 	.onb-dots { display: flex; gap: 6px; margin: 0 auto; }
 	.onb-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--brd); transition: .2s; }
@@ -291,25 +307,27 @@
 	.dialog .m { color: var(--tx); font-family: var(--mono); font-size: 12.5px; background: rgba(0,0,0,.28);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 12px; margin: var(--s2) 0; word-break: break-word; }
 	.dialog .row2 { display: flex; gap: var(--s1); justify-content: flex-end; }
-	.dialog button { font: inherit; font-size: 13.5px; padding: 10px 18px; border-radius: var(--r-sm); cursor: pointer;
+	/* .approve / .deny are reused by every full-screen panel (Customize, Tuning, Training),
+	   not just .dialog — scoping them to .dialog left those as unstyled native buttons. */
+	.dialog button, .approve, .deny { font: inherit; font-size: 13.5px; padding: 10px 18px; border-radius: var(--r-sm); cursor: pointer;
 		border: 1px solid var(--brd-soft); transition: .18s cubic-bezier(.2,.8,.2,1); }
-	.dialog button:active { transform: scale(.96); }
-	.dialog .approve { background: linear-gradient(140deg, #0a84ff, #0a6cff); color: #fff; border-color: var(--ac); font-weight: 600; box-shadow: 0 4px 16px #0a84ff44; }
-	.dialog .deny { background: var(--glass); color: var(--tx); }
+	.dialog button:active, .approve:active, .deny:active { transform: scale(.96); }
+	.dialog .approve, .approve { background: var(--ac); color: var(--ac-fg); border-color: var(--ac); font-weight: 600; }
+	.dialog .deny, .deny { background: var(--card-2); color: var(--tx); }
 
 	.banner { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: none; text-align: center;
-		padding: 7px; font-size: 12.5px; color: #ff9f9a; background: rgba(255,69,58,.14); backdrop-filter: blur(10px); }
+		padding: 7px; font-size: 12.5px; color: #c98b7e; background: #5a3a34; }
 	.banner.show { display: block; }
 
 	/* ——— customize button + theme panel ——— */
 	.cust-btn { font: inherit; font-size: 12px; color: var(--tx); padding: 6px 13px; border-radius: 999px; cursor: pointer;
-		border: 1px solid var(--brd-soft); box-shadow: inset 0 1px 0 var(--hi); white-space: nowrap;
-		background: linear-gradient(120deg, color-mix(in srgb, var(--glow1) 26%, transparent), color-mix(in srgb, var(--glow2) 26%, transparent));
+		border: 1px solid var(--brd-soft); white-space: nowrap;
+		background: var(--card-2);
 		transition: .2s cubic-bezier(.2,.8,.2,1); }
 	.cust-btn:hover { transform: translateY(-1px); border-color: var(--brd); }
 	.cust-btn:active { transform: scale(.97); }
-	.icon-btn { font-size: 13px; color: var(--tx); background: var(--glass-2); border: 1px solid var(--brd-soft);
-		border-radius: 999px; width: 30px; height: 30px; cursor: pointer; box-shadow: inset 0 1px 0 var(--hi);
+	.icon-btn { font-size: 13px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft);
+		border-radius: 999px; width: 30px; height: 30px; cursor: pointer;
 		transition: .2s cubic-bezier(.2,.8,.2,1); }
 	.icon-btn:hover { transform: translateY(-1px); border-color: var(--brd); }
 	.icon-btn:active { transform: scale(.92); }
@@ -317,23 +335,22 @@
 	.theme-dialog { max-width: 520px; }
 	.preset-row { display: flex; gap: var(--s1); flex-wrap: wrap; margin: var(--s2) 0; }
 	.preset { cursor: pointer; width: 88px; padding: 7px; border-radius: var(--r-md); border: 1px solid var(--brd-soft);
-		background: var(--glass-2); transition: .2s cubic-bezier(.2,.8,.2,1); }
-	.preset:hover { transform: translateY(-3px); border-color: var(--brd); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-	.preset .sw { height: 38px; border-radius: var(--r-sm); margin-bottom: 6px; box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+		background: var(--card-2); transition: .2s cubic-bezier(.2,.8,.2,1); }
+	.preset:hover { border-color: var(--ac); background: var(--card-3); }
+	.preset .sw { height: 38px; border-radius: var(--r-sm); margin-bottom: 6px; display: flex; align-items: center;
+		justify-content: center; gap: 5px; }
+	.preset .sw i { width: 10px; height: 10px; border-radius: 2px; }
 	.preset .nm { font-size: 11px; color: var(--tx-dim); text-align: center; }
 	.theme-gen { display: flex; gap: var(--s1); margin-top: var(--s1); }
-	.theme-gen input { flex: 1; font: inherit; font-size: 13px; color: var(--tx); background: var(--glass-2);
+	.theme-gen input { flex: 1; font: inherit; font-size: 13px; color: var(--tx); background: var(--card-2);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-md); padding: 10px 13px; outline: none; transition: .2s; }
 	.theme-gen input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
-	.theme-gen button { font: inherit; font-weight: 600; color: #fff; padding: 0 16px; border-radius: var(--r-md); cursor: pointer;
-		border: 1px solid var(--ac); background: linear-gradient(140deg, #0a84ff, #0a6cff); box-shadow: 0 4px 16px #0a84ff44; transition: .2s; }
+	.theme-gen button { font: inherit; font-weight: 600; color: var(--ac-fg); padding: 0 16px; border-radius: var(--r-md); cursor: pointer;
+		border: 1px solid var(--ac); background: var(--ac); transition: .2s; }
 	.theme-gen button:hover { transform: translateY(-1px); }
 	.theme-gen button:disabled { opacity: .5; cursor: default; transform: none; }
 	.theme-status { font-size: 12px; color: var(--tx-dim); min-height: 15px; margin-top: var(--s1); }
-	/* ——— fractal-glass + liquid-glass sliders ——— */
-	.lite-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--tx); cursor: pointer; margin-top: var(--s1); user-select: none; }
-	.lite-row input { accent-color: var(--ac); width: 15px; height: 15px; cursor: pointer; }
-	.lite-hint { color: var(--tx-faint); font-size: 11.5px; }
+	/* ——— slider rows (model tuning) ——— */
 	.fx-groups { margin: var(--s2) 0 var(--s1); display: flex; flex-direction: column; gap: var(--s2); }
 	.fx-group-h { font-size: 10.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--tx-faint); margin-bottom: 2px; }
 	.fx-row { display: grid; grid-template-columns: 96px 1fr 42px; align-items: center; gap: var(--s1); margin: 5px 0; }
@@ -359,25 +376,25 @@
 	.tune-model { font-size: 12px; color: var(--tx-dim); font-weight: 400; }
 	/* ——— model training overlay (reuses .settings / .seg / .tune-*) ——— */
 	.train-panel[hidden] { display: none; }
-	.train-badge { display: inline-block; font-size: 11.5px; color: var(--tx-dim); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 4px 11px; margin: var(--s1) 0 var(--s2); }
+	.train-badge { display: inline-block; font-size: 11.5px; color: var(--tx-dim); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 4px 11px; margin: var(--s1) 0 var(--s2); }
 	.train-row { display: grid; grid-template-columns: 116px 1fr; align-items: center; gap: var(--s2); margin: 7px 0; }
 	.train-row label { font-size: 12px; color: var(--tx-dim); }
-	.train-row input { font: inherit; font-size: 12px; color: var(--tx); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 7px 10px; outline: none; width: 100%; }
+	.train-row input { font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 7px 10px; outline: none; width: 100%; }
 	.train-row input:focus { border-color: var(--ac); }
 	.train-loss { color: var(--tx); font-variant-numeric: tabular-nums; }
-	.train-log { height: 340px; overflow-y: auto; margin-top: var(--s1); padding: var(--s1) var(--s2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #c4cddb; background: rgba(0,0,0,.28); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); }
+	.train-log { height: 340px; overflow-y: auto; margin-top: var(--s1); padding: var(--s1) var(--s2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #ddd6c6; background: rgba(0,0,0,.28); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); }
 	/* ——— runs history + evaluation ——— */
 	#trainRuns { display: flex; flex-direction: column; gap: 6px; }
-	.run-card { display: flex; align-items: center; gap: var(--s2); padding: 10px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); }
+	.run-card { display: flex; align-items: center; gap: var(--s2); padding: 10px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.run-card .info { flex: 1; min-width: 0; }
 	.run-card .rid { font-family: var(--mono); font-size: 11.5px; color: var(--tx); word-break: break-all; }
 	.run-card .rmeta { font-size: 11px; color: var(--tx-dim); margin-top: 2px; }
 	.run-st { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--brd-soft); flex: 0 0 auto; }
-	.run-st.done { color: #56d364; border-color: rgba(48,209,88,.4); }
-	.run-st.running { color: #d9c97c; }
-	.run-st.error { color: #ff8170; border-color: rgba(255,129,112,.4); }
-	.run-act { font: inherit; font-size: 11.5px; color: var(--tx); background: var(--glass); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 10px; cursor: pointer; transition: .15s; flex: 0 0 auto; }
-	.run-act:hover { border-color: var(--ac); color: #fff; }
+	.run-st.done { color: #9db18c; border-color: rgba(138,159,123,.4); }
+	.run-st.running { color: var(--warn); }
+	.run-st.error { color: #b5766a; border-color: rgba(181,118,106,.4); }
+	.run-act { font: inherit; font-size: 11.5px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 10px; cursor: pointer; transition: .15s; flex: 0 0 auto; }
+	.run-act:hover { border-color: var(--ac); color: var(--tx); }
 	.eval-chart { margin: var(--s2) 0; }
 	.eval-chart h4 { margin: 0 0 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--tx-faint); }
 	.eval-chart svg { max-width: 100%; height: auto; }
@@ -387,37 +404,36 @@
 	.eval-samples td { color: var(--tx-dim); white-space: pre-wrap; word-break: break-word; }
 	.eval-empty { color: var(--tx-faint); font-size: 12px; padding: var(--s2) 0; }
 	.grade-correct, .grade-wrong, .grade-abstain, .grade-ambiguous { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; vertical-align: middle; }
-	.grade-correct { background: #1d7f5f33; color: #35d39a; }
-	.grade-wrong { background: #7f1d1d33; color: #ff8170; }
-	.grade-abstain { background: #6b728033; color: var(--tx-faint); }
-	.grade-ambiguous { background: #7f5f1d33; color: #e0a94a; }
+	.grade-correct { background: rgba(138,159,123,.20); color: #9db18c; }
+	.grade-wrong { background: rgba(181,118,106,.20); color: #b5766a; }
+	.grade-abstain { background: rgba(180,172,155,.16); color: var(--tx-faint); }
+	.grade-ambiguous { background: rgba(161,143,92,.22); color: #c6ad72; }
 	.tune-quant { color: var(--tx-faint); }
 	.tune-hint { color: var(--tx-faint); font-size: 11.5px; }
 	.tune-sys { margin: 4px 0 var(--s2); }
 	.tune-sys > label { display: block; font-size: 12px; color: var(--tx-dim); margin-bottom: 6px; }
-	.tune-sys textarea { width: 100%; font: inherit; font-size: 12px; color: var(--tx); background: var(--glass-2);
+	.tune-sys textarea { width: 100%; font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 8px 10px; resize: vertical; }
 	.tune-sys textarea:focus { border-color: var(--ac); outline: none; }
 	.tune-row { display: grid; grid-template-columns: 132px 1fr 66px; align-items: center; gap: var(--s1); margin: 6px 0; }
 	.tune-row label { font-size: 12px; color: var(--tx-dim); }
 	.tune-row input[type=range] { width: 100%; accent-color: var(--ac); height: 4px; cursor: pointer; }
-	.tune-row input[type=number] { font-family: var(--mono); font-size: 11px; color: var(--tx); background: var(--glass-2);
+	.tune-row input[type=number] { font-family: var(--mono); font-size: 11px; color: var(--tx); background: var(--card-2);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 3px 6px; width: 100%; }
 	.tune-row input[type=number]:focus { border-color: var(--ac); outline: none; }
 	.tune-row select { grid-column: 2 / 4; justify-self: start; font: inherit; font-size: 11px; color: var(--tx);
-		background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 3px 6px; }
+		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 3px 6px; }
 	.tune-actions { margin-top: var(--s2); display: flex; align-items: center; gap: var(--s1); }
 	.settings-preview { display: flex; flex-direction: column; gap: var(--s1); min-height: 0; }
 	.preview-label { font-size: 10.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--tx-faint); }
-	.preview-stage { flex: 1; min-height: 220px; border-radius: var(--r-md); overflow: hidden; background: var(--grad);
+	.preview-stage { flex: 1; min-height: 220px; border-radius: var(--r-md); overflow: hidden; background: var(--bg);
 		display: grid; place-items: center; padding: var(--s3); }
 	.preview-card { width: 100%; max-width: 280px; padding: var(--s2); display: flex; flex-direction: column; gap: var(--s1); }
 	.preview-title { font-size: 12px; color: var(--tx-dim); }
 	.preview-code { margin: 0; font-size: 12px; line-height: 1.6; white-space: pre; overflow: hidden; }
-	.preview-accent { align-self: flex-start; font: inherit; font-size: 12px; font-weight: 600; color: #fff; border: 0; border-radius: var(--r-xs);
-		padding: 7px 14px; cursor: pointer; background: linear-gradient(140deg, var(--ac), color-mix(in srgb, var(--ac) 68%, #000));
-		box-shadow: 0 4px 14px var(--ac-soft); }
-	.perf-note { font-size: 12px; color: var(--tx-faint); margin-top: var(--s1); }
+	.preview-accent { align-self: flex-start; font: inherit; font-size: 12px; font-weight: 600; color: var(--ac-fg); border: 0; border-radius: var(--r-xs);
+		padding: 7px 14px; cursor: pointer; background: var(--ac);
+		}
 	@media (max-width: 900px) { .settings-body { grid-template-columns: minmax(0,1fr); } .settings-preview { order: -1; } .preview-stage { min-height: 150px; } }
 
 	/* ——— manual color pickers (Theme tab) ——— */
@@ -434,87 +450,85 @@
 	.bg-custom { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; border: 0; display: none; pointer-events: none; }
 	.bg-mode-seg { margin: var(--s2) 0; }
 	#bgCode { width: 100%; min-height: 220px; resize: vertical; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--tx);
-		background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-md); padding: 12px; outline: none; tab-size: 2; }
+		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-md); padding: 12px; outline: none; tab-size: 2; }
 	#bgCode:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
 	.bg-actions { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s1); }
 	.bg-actions .theme-status { margin: 0; }
 
 	/* ——— Hugging Face model browser ——— */
-	.add-chip { border-style: dashed !important; color: var(--tx-dim); }
-	.add-chip:hover { color: var(--tx); }
 	.hf-dialog { max-width: 580px; }
 	.hf-search { display: flex; gap: var(--s1); margin: var(--s2) 0 var(--s1); }
-	.hf-search input { flex: 1; font: inherit; font-size: 13px; color: var(--tx); background: var(--glass-2);
+	.hf-search input { flex: 1; font: inherit; font-size: 13px; color: var(--tx); background: var(--card-2);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-md); padding: 10px 13px; outline: none; transition: .2s; }
 	.hf-search input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
-	.hf-search button { font: inherit; font-weight: 600; color: #fff; padding: 0 16px; border-radius: var(--r-md); cursor: pointer;
-		border: 1px solid var(--ac); background: linear-gradient(140deg,#0a84ff,#0a6cff); box-shadow: 0 4px 16px #0a84ff44; }
+	.hf-search button { font: inherit; font-weight: 600; color: var(--ac-fg); padding: 0 16px; border-radius: var(--r-md); cursor: pointer;
+		border: 1px solid var(--ac); background: var(--ac); }
 	.hf-body { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-	.hf-repo { padding: 9px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); cursor: pointer; transition: .15s; }
-	.hf-repo:hover { border-color: var(--brd); background: rgba(255,255,255,.05); }
+	.hf-repo { padding: 9px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); cursor: pointer; transition: .15s; }
+	.hf-repo:hover { border-color: var(--brd); background: var(--card-2); }
 	.hf-repo-id { font-family: var(--mono); font-size: 12.5px; color: var(--tx); word-break: break-all; }
 	.hf-repo-meta { font-size: 11px; color: var(--tx-dim); margin-top: 2px; }
 	.hf-back { font-size: 12px; color: var(--ac); cursor: pointer; padding: 4px 2px; align-self: flex-start; }
-	.hf-file { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--glass-2); border: 1px solid var(--brd-soft); }
+	.hf-file { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.hf-file-name { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--tx); word-break: break-all; }
 	.hf-file-size { font-size: 11.5px; color: var(--tx-dim); white-space: nowrap; }
 	.hf-tag { font-size: 9px; color: var(--tx-faint); border: 1px solid var(--brd-soft); border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
-	.hf-add-btn { font: inherit; font-size: 12px; font-weight: 600; color: #fff; border: 1px solid var(--ac); border-radius: var(--r-xs);
-		background: linear-gradient(140deg,#0a84ff,#0a6cff); padding: 5px 13px; cursor: pointer; transition: .15s; white-space: nowrap; }
+	.hf-add-btn { font: inherit; font-size: 12px; font-weight: 600; color: var(--ac-fg); border: 1px solid var(--ac); border-radius: var(--r-xs);
+		background: var(--ac); padding: 5px 13px; cursor: pointer; transition: .15s; white-space: nowrap; }
 	.hf-add-btn:hover { transform: translateY(-1px); }
 	.hf-add-btn:disabled { opacity: .5; cursor: default; transform: none; }
 	.hf-token { margin-top: var(--s2); font-size: 12px; color: var(--tx-dim); }
 	.hf-token summary { cursor: pointer; user-select: none; }
 	.hf-token-row { display: flex; gap: var(--s1); margin-top: var(--s1); }
-	.hf-token-row input { flex: 1; font: inherit; font-size: 12px; color: var(--tx); background: var(--glass-2);
+	.hf-token-row input { flex: 1; font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2);
 		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 8px 11px; outline: none; }
 	.hf-token-row input:focus { border-color: var(--ac); }
-	.hf-token-row button { font: inherit; font-size: 12px; color: var(--tx); background: var(--glass); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 0 14px; cursor: pointer; }
+	.hf-token-row button { font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 0 14px; cursor: pointer; }
 
 	/* ——— explorer header mini-buttons ——— */
 	.mini { font: inherit; font-size: 13px; color: var(--tx-dim); background: transparent; border: 0; cursor: pointer; width: 24px; height: 22px; border-radius: var(--r-xs); transition: .15s; }
-	.mini:hover { color: var(--tx); background: rgba(255,255,255,.08); }
-	.mini.on { color: #fff; background: var(--ac-soft); }
+	.mini:hover { color: var(--tx); background: var(--card-2); }
+	.mini.on { color: var(--ac-fg); background: var(--ac); }
 
 	/* ——— right-click context menu ——— */
-	.ctx { position: fixed; z-index: 50; min-width: 168px; padding: 5px; border-radius: var(--r-sm); background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid var(--brd); box-shadow: 0 8px 30px rgba(0,0,0,.5); display: none; }
+	.ctx { position: fixed; z-index: 50; min-width: 168px; padding: 5px; border-radius: var(--r-sm); background: var(--card); border: 1px solid var(--brd); box-shadow: 0 4px 14px rgba(0,0,0,.35); display: none; }
 	.ctx.show { display: block; }
 	.ctx button { display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; color: var(--tx); background: transparent; border: 0; padding: 7px 11px; border-radius: var(--r-xs); cursor: pointer; }
-	.ctx button:hover { background: rgba(255,255,255,.08); }
-	.ctx button.danger:hover { background: rgba(255,69,58,.2); color: #ff9f9a; }
+	.ctx button:hover { background: var(--card-2); }
+	.ctx button.danger:hover { background: rgba(181,118,106,.2); color: #c98b7e; }
 	.ctx .div { height: 1px; background: var(--brd-soft); margin: 4px 6px; }
 
 	/* ——— search view (left panel) ——— */
 	#searchView:not([hidden]) { flex: 1; overflow-y: auto; padding: var(--s-half) var(--s1) var(--s2); display: flex; flex-direction: column; gap: 6px; }
 	.search-controls { display: flex; flex-direction: column; gap: 6px; }
-	.search-controls input { font: inherit; font-size: 12.5px; color: var(--tx); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 7px 10px; outline: none; }
+	.search-controls input { font: inherit; font-size: 12.5px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 7px 10px; outline: none; }
 	.search-controls input:focus { border-color: var(--ac); }
 	.search-opts { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--tx-dim); }
 	.search-opts label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-	.search-opts button { margin-left: auto; font: inherit; font-size: 11.5px; color: #fff; background: var(--ac); border: 0; border-radius: var(--r-xs); padding: 5px 11px; cursor: pointer; }
+	.search-opts button { margin-left: auto; font: inherit; font-size: 11.5px; color: var(--ac-fg); background: var(--ac); border: 0; border-radius: var(--r-xs); padding: 5px 11px; cursor: pointer; }
 	#searchResults { display: flex; flex-direction: column; gap: 1px; }
 	.sr-file { font-size: 11px; color: var(--tx-faint); padding: 8px 4px 3px; font-weight: 600; word-break: break-all; }
 	.sr-line { display: flex; gap: 8px; padding: 3px 8px; border-radius: var(--r-xs); cursor: pointer; font-family: var(--mono); font-size: 11.5px; color: var(--tx-dim); white-space: pre; overflow: hidden; }
-	.sr-line:hover { background: rgba(255,255,255,.06); color: var(--tx); }
+	.sr-line:hover { background: var(--card-2); color: var(--tx); }
 	.sr-line .ln { color: var(--tx-faint); min-width: 30px; text-align: right; flex: 0 0 auto; }
 	.sr-line .tx { overflow: hidden; text-overflow: ellipsis; }
 
 	/* ——— command palette ——— */
 	.palette-top { align-items: flex-start; }
 	.palette { max-width: 560px; width: 100%; margin-top: 12vh; padding: var(--s1); border-radius: var(--r-md); }
-	#paletteInput { width: 100%; font: inherit; font-size: 14px; color: var(--tx); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 11px 13px; outline: none; }
+	#paletteInput { width: 100%; font: inherit; font-size: 14px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 11px 13px; outline: none; }
 	#paletteInput:focus { border-color: var(--ac); }
 	#paletteList { max-height: 320px; overflow-y: auto; margin-top: 6px; }
 	.pal-item { padding: 8px 11px; border-radius: var(--r-xs); font-size: 13px; color: var(--tx-dim); cursor: pointer; }
-	.pal-item.sel, .pal-item:hover { background: var(--ac-soft); color: #fff; }
+	.pal-item.sel, .pal-item:hover { background: var(--ac-soft); color: var(--tx); }
 
 	/* ——— find-in-file bar ——— */
-	.findbar { position: absolute; top: 8px; right: 20px; z-index: 15; display: none; gap: 4px; align-items: center; padding: 6px; border-radius: var(--r-sm); background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border: 1px solid var(--brd); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+	.findbar { position: absolute; top: 8px; right: 20px; z-index: 15; display: none; gap: 4px; align-items: center; padding: 6px; border-radius: var(--r-sm); background: var(--card); border: 1px solid var(--brd); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
 	.findbar.show { display: flex; }
-	.findbar input { font: inherit; font-size: 12px; color: var(--tx); background: var(--glass-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 8px; outline: none; width: 150px; }
+	.findbar input { font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 8px; outline: none; width: 150px; }
 	.findbar input:focus { border-color: var(--ac); }
 	.findbar button { font: inherit; font-size: 12px; color: var(--tx-dim); background: transparent; border: 0; cursor: pointer; padding: 4px 7px; border-radius: var(--r-xs); }
-	.findbar button:hover { color: var(--tx); background: rgba(255,255,255,.08); }
+	.findbar button:hover { color: var(--tx); background: var(--card-2); }
 	.findbar .cnt { font-size: 11px; color: var(--tx-faint); min-width: 58px; text-align: center; }
 
 	@media (max-width: 1180px) { .app { grid-template-columns: 0 minmax(0,1fr) 360px; } .files { opacity: 0; pointer-events: none; } }
@@ -522,7 +536,7 @@
 </style>
 </head>
 <body>
-	<!-- Ambient backdrop is a plain CSS gradient (var(--grad)); custom-code backgrounds render in #bgFrame. -->
+	<!-- Flat backdrop; custom-code backgrounds render in #bgFrame above it. -->
 	<div class="bg"></div>
 	<iframe class="bg-custom" id="bgFrame" title="Custom background" sandbox="allow-scripts" allow="autoplay; fullscreen" scrolling="no"></iframe>
 	<div class="aura"></div>
@@ -612,7 +626,7 @@
 							<input id="brUrl" class="mono" placeholder="http://localhost:3000" spellcheck="false" autocomplete="off" />
 							<button id="brGo">Go</button>
 						</div>
-						<iframe id="brFrame" srcdoc="&lt;body style='margin:0;display:grid;place-items:center;height:100vh;background:#0d1017;color:#5b6472;font-family:-apple-system,sans-serif;font-size:14px'&gt;Enter a URL above to preview a site or your local dev server&lt;/body&gt;"></iframe>
+						<iframe id="brFrame" srcdoc="&lt;body style='margin:0;display:grid;place-items:center;height:100vh;background:#322e23;color:#8a8271;font-family:Merriweather,ui-serif,Georgia,serif;font-size:14px'&gt;Enter a URL above to preview a site or your local dev server&lt;/body&gt;"></iframe>
 					</div>
 				</div>
 			</div>
@@ -620,11 +634,16 @@
 
 		<section class="agent glass">
 			<div class="panel-h">Assistant <span class="grow"></span><span id="modelPill" style="text-transform:none;letter-spacing:0;color:var(--tx-dim)">no model</span></div>
-			<div id="models"></div>
 			<div id="chat"></div>
 			<div class="composer">
-				<textarea id="input" rows="1" placeholder="Ask the assistant… it can read & edit your files"></textarea>
-				<button id="send" title="Send">↑</button>
+				<textarea id="input" rows="1" placeholder="What do you want to do?"></textarea>
+				<div class="composer-bar">
+					<button class="mp-trigger" id="mpTrigger" aria-haspopup="listbox" aria-expanded="false" title="Choose a model">
+						<span class="mark">◆</span><span class="nm" id="mpTriggerName">No model</span><span class="caret">▾</span>
+					</button>
+					<span class="grow"></span>
+					<button id="send" title="Send">↑</button>
+				</div>
 			</div>
 		</section>
 
@@ -678,8 +697,6 @@
 				<div class="seg settings-tabs">
 					<button data-tab="theme" class="on">Theme</button>
 					<button data-tab="background">Background</button>
-					<button data-tab="effects">Effects</button>
-					<button data-tab="perf">Performance</button>
 				</div>
 				<span class="grow"></span>
 				<button class="deny" id="themeReset">Reset</button>
@@ -694,9 +711,9 @@
 						<div class="theme-status" id="themeStatus"></div>
 					</section>
 					<section class="tab-panel" data-tab="background" hidden>
-						<div class="sub">Use the ambient gradient, or a custom background from your own code — HTML, CSS &amp; JS run in a sandboxed frame behind the app.</div>
+						<div class="sub">Use the flat theme background, or a custom one from your own code — HTML, CSS &amp; JS run in a sandboxed frame behind the app.</div>
 						<div class="seg bg-mode-seg">
-							<button data-bgmode="gradient" class="on">Gradient</button>
+							<button data-bgmode="gradient" class="on">Flat</button>
 							<button data-bgmode="custom">Custom code</button>
 						</div>
 						<textarea id="bgCode" class="mono" spellcheck="false" autocomplete="off" placeholder="Paste HTML/CSS/JS for a full-screen background…"></textarea>
@@ -705,23 +722,14 @@
 							<span class="theme-status" id="bgStatus"></span>
 						</div>
 					</section>
-					<section class="tab-panel" data-tab="effects" hidden>
-						<div class="sub">Tune the liquid-glass panels — watch the preview →</div>
-						<div class="fx-groups" id="fxControls"></div>
-					</section>
-					<section class="tab-panel" data-tab="perf" hidden>
-						<div class="sub">Lighten the effects on low-end machines.</div>
-						<label class="lite-row"><input type="checkbox" id="liteToggle" /> <span>Performance mode <span class="lite-hint">— freezes drift, drops backdrop blur on all glass</span></span></label>
-						<div class="perf-note">Reduced motion is honored automatically when your system requests it.</div>
-					</section>
 				</div>
 				<aside class="settings-preview">
 					<div class="preview-label">Live preview</div>
 					<div class="preview-stage">
 						<div class="glass preview-card">
-							<div class="preview-title">◆ Liquid glass</div>
+							<div class="preview-title">◆ Preview</div>
 							<pre class="preview-code mono hl"><span class="kw">const</span> <span class="fn">theme</span> = <span class="st">"live"</span>;
-<span class="kw">let</span> glow = <span class="nu">3</span>; <span class="cm">// ambient</span></pre>
+<span class="kw">let</span> radius = <span class="nu">8</span>; <span class="cm">// px</span></pre>
 							<button class="preview-accent">Accent</button>
 						</div>
 					</div>
@@ -855,7 +863,19 @@
 		</div>
 	</div>
 
-	<div id="toast" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;padding:9px 16px;border-radius:999px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--brd);font-size:12.5px;color:var(--tx);opacity:0;transition:opacity .3s;pointer-events:none"></div>
+	<div class="mp-pop" id="mpPop" role="dialog" aria-label="Choose a model">
+		<canvas id="modelFx" aria-hidden="true"></canvas>
+		<div class="mp-grid">
+			<div class="mp-list-col">
+				<div class="mp-search"><input id="mpSearch" placeholder="Search models…" spellcheck="false" autocomplete="off" aria-label="Search models" /></div>
+				<div id="mpList" role="listbox"></div>
+				<button class="mp-add" id="mpAdd">＋ Add from Hugging Face</button>
+			</div>
+			<div class="mp-detail" id="mpDetail"></div>
+		</div>
+	</div>
+
+	<div id="toast" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;padding:9px 16px;border-radius:999px;background:var(--card);border:1px solid var(--brd);font-size:12.5px;color:var(--tx);opacity:0;transition:opacity .3s;pointer-events:none"></div>
 
 <div class="overlay" id="folderOverlay">
 		<div class="dialog glass hf-dialog">
@@ -876,7 +896,7 @@
 		<div class="dialog glass">
 			<h3 id="promptTitle">Name</h3>
 			<div class="sub" id="promptSub" hidden></div>
-			<input id="promptInput" spellcheck="false" autocomplete="off" style="width:100%;font:inherit;font-size:13px;color:var(--tx);background:var(--glass-2);border:1px solid var(--brd-soft);border-radius:var(--r-sm);padding:10px 12px;outline:none;margin:var(--s2) 0" />
+			<input id="promptInput" spellcheck="false" autocomplete="off" style="width:100%;font:inherit;font-size:13px;color:var(--tx);background:var(--card-2);border:1px solid var(--brd-soft);border-radius:var(--r-sm);padding:10px 12px;outline:none;margin:var(--s2) 0" />
 			<div class="row2"><button class="deny" id="promptCancel">Cancel</button><button class="approve" id="promptOk">OK</button></div>
 		</div>
 	</div>
@@ -1051,15 +1071,20 @@ function buildInto(host, list, depth) {
 }
 
 // ————— agent (chat + models + tools + confirm) —————
-const chatEl = $("chat"), models = $("models"), input = $("input"), sendBtn = $("send"), overlay = $("overlay");
+const chatEl = $("chat"), input = $("input"), sendBtn = $("send"), overlay = $("overlay");
 let hasModel = false, busy = false, turn = null, textEl = null, lastTool = null;
 let genStart = 0, genTokens = 0; // tokens/sec meter for the status bar
 function updateTps() {
 	const dt = performance.now() - genStart;
-	if (genStart && dt > 0 && genTokens > 1) $("stTps").textContent = (genTokens / (dt / 1000)).toFixed(1) + " tok/s";
+	if (genStart && dt > 0 && genTokens > 1) {
+		const tps = genTokens / (dt / 1000);
+		$("stTps").textContent = tps.toFixed(1) + " tok/s";
+		if (loadedModel) recordSpeed(loadedModel.id, tps);
+	}
 }
 const tok = (n) => n >= 1024 ? (n / 1024).toFixed(1).replace(/\.0$/, "") + "K" : String(n | 0);
-function updateCtx(used, size) { $("stCtx").textContent = size ? `ctx ${tok(used || 0)}/${tok(size)}` : "ctx —"; }
+let ctxWindow = 0; // context window of the loaded model — the picker reports it alongside size/quant
+function updateCtx(used, size) { ctxWindow = size || 0; $("stCtx").textContent = size ? `ctx ${tok(used || 0)}/${tok(size)}` : "ctx —"; }
 // GPU: backend name (from status) + live utilization % (from the gpu-usage poll, when available)
 let gpuBackend = "—", gpuUsagePct = null;
 function renderGpu() { $("stGpu").textContent = "GPU " + gpuBackend + (gpuUsagePct != null ? " " + gpuUsagePct + "%" : ""); }
@@ -1083,37 +1108,277 @@ function addTool(name, args) {
 function finishTool(name, result) { if (!lastTool) return; lastTool.querySelector(".st").textContent = "done"; lastTool.querySelector("pre").textContent += "\n\nresult: " + JSON.stringify(result, null, 2); scrollChat(); }
 function endAssistant() { if (textEl) textEl.classList.remove("cursor"); turn = textEl = lastTool = null; }
 
+const gbLabel = (n) => (n >= 1 ? n + " GB" : Math.round(n * 1000) + " MB");
+
 function renderModels(list, loadedId, gpu) {
-	models.innerHTML = "";
-	for (const m of list) {
-		const chip = document.createElement("div"); chip.className = "chip" + (m.loaded ? " loaded" : ""); chip.dataset.id = m.id;
-		const size = m.sizeGB >= 1 ? m.sizeGB + " GB" : Math.round(m.sizeGB * 1000) + " MB";
-		if (m.loaded) chip.innerHTML = `<span class="k">●</span> ${shortName(m.label)}`;
-		else if (m.cached) { chip.innerHTML = `<span class="k">load</span> ${shortName(m.label)}`; chip.onclick = () => send({ type: "load", modelId: m.id }); }
-		else { chip.innerHTML = `<span class="k">⬇</span> ${shortName(m.label)} <span class="k">${size}</span>`; chip.onclick = () => startDownload(m.id, chip); }
-		if (downloading[m.id] != null) setChipProgress(chip, downloading[m.id]);
-		models.appendChild(chip);
-	}
-	const add = document.createElement("div");
-	add.className = "chip add-chip"; add.textContent = "+ Add model";
-	add.onclick = openHf;
-	models.appendChild(add);
 	hasModel = !!loadedId;
 	loadedModel = loadedId ? list.find((x) => x.id === loadedId) : null;
 	const lm = loadedModel;
-	const sizeStr = lm ? (lm.sizeGB >= 1 ? lm.sizeGB + " GB" : Math.round(lm.sizeGB * 1000) + " MB") : "";
 	$("modelPill").textContent = lm ? shortName(lm.label) : "no model";
-	$("stModel").textContent = lm ? `${shortName(lm.label)} · ${sizeStr}${lm.quant ? " · " + lm.quant : ""}` : "no model";
+	$("stModel").textContent = lm ? `${shortName(lm.label)} · ${gbLabel(lm.sizeGB)}${lm.quant ? " · " + lm.quant : ""}` : "no model";
+	$("mpTriggerName").textContent = lm ? shortName(lm.label) : "No model";
 	gpuBackend = !lm ? "—" : (!gpu || gpu === "unloaded" || gpu === "false") ? "cpu" : gpu;
 	if (!lm) gpuUsagePct = null;
 	renderGpu();
+	if (mpSelId && !list.some((m) => m.id === mpSelId)) mpSelId = null;
+	if (!mpSelId) mpSelId = loadedId || (list[0] && list[0].id) || null;
+	renderPicker();
 	if (!chatEl.children.length && !hasModel) chatEl.innerHTML = `<div class="empty-agent">Pick a model to begin. Everything runs locally and offline.</div>`;
 	else if (hasModel && chatEl.querySelector(".empty-agent")) chatEl.innerHTML = "";
 	updateSend();
 }
-function setChipProgress(chip, pct) { let b = chip.querySelector(".bar"); if (!b) { b = document.createElement("div"); b.className = "bar"; chip.appendChild(b); } b.style.width = pct + "%"; }
-function startDownload(id, chip) { if (downloading[id] != null) return; downloading[id] = 0; if (chip) setChipProgress(chip, 0); send({ type: "download", modelId: id }); }
+function startDownload(id) { if (downloading[id] != null) return; downloading[id] = 0; send({ type: "download", modelId: id }); renderPicker(); }
 function updateSend() { sendBtn.disabled = busy || !hasModel; }
+
+// ————— model picker —————
+// Every value below is measured or read from the registry. Where a number isn't known yet
+// (speed before the model has generated anything, context before it is loaded) the row says
+// so rather than inventing a rating.
+let mpSelId = null;
+
+// Last measured generation speed per model, in tok/s. Written when a turn finishes — that
+// makes it a real number from this machine rather than a vendor claim.
+let mpSpeeds = {};
+try { mpSpeeds = JSON.parse(localStorage.getItem("llm-speeds") || "{}") || {}; } catch {}
+function recordSpeed(id, tps) {
+	if (!id || !(tps > 0)) return;
+	mpSpeeds[id] = Math.round(tps * 10) / 10;
+	try { localStorage.setItem("llm-speeds", JSON.stringify(mpSpeeds)); } catch {}
+}
+
+/** Parameter count in billions, parsed from the id/label ("…:7b", "135M"). null if absent. */
+function paramsB(m) {
+	const s = `${m.id} ${m.label}`;
+	const g = /(\d+(?:\.\d+)?)\s*([bm])\b/i.exec(s);
+	if (!g) return null;
+	const n = parseFloat(g[1]);
+	return g[2].toLowerCase() === "m" ? n / 1000 : n;
+}
+const paramLabel = (b) => (b == null ? "—" : b < 1 ? Math.round(b * 1000) + "M" : b + "B");
+/** Bits per weight from the quant tag — IQ3_M → 3, Q4_K_M → 4, F16 → 16. */
+function quantBits(q) { const g = /(\d+)/.exec(q || ""); return g ? +g[1] : null; }
+
+const PIPS = 10;
+const pips = (filled, cls) =>
+	`<div class="mp-pips ${cls || ""}${filled == null ? " unknown" : ""}">`
+	+ Array.from({ length: PIPS }, (_, i) => `<i class="${filled != null && i < filled ? "on" : ""}"></i>`).join("")
+	+ `</div>`;
+// log scale: 0.1B → 1 pip, 70B → 10. Linear would put every small model at zero.
+const logPips = (v, min, max) => v == null ? null
+	: Math.max(1, Math.min(PIPS, Math.round(((Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min))) * PIPS)));
+const linPips = (v, max) => v == null ? null : Math.max(1, Math.min(PIPS, Math.round((v / max) * PIPS)));
+
+function metric(label, value, filled, cls, title) {
+	return `<div><div class="mp-bar-h"${title ? ` title="${title}"` : ""}>${label}<span class="v">${value}</span></div>${pips(filled, cls)}</div>`;
+}
+
+function renderPicker() {
+	const list = lastModels || [];
+	const q = ($("mpSearch").value || "").trim().toLowerCase();
+	const shown = q ? list.filter((m) => (m.label + " " + m.owner + " " + m.repo).toLowerCase().includes(q)) : list;
+
+	const host = $("mpList"); host.innerHTML = "";
+	if (!shown.length) host.innerHTML = `<div class="mp-empty">No models match “${q}”.</div>`;
+	for (const m of shown) {
+		const el = document.createElement("div");
+		el.className = "mp-item" + (m.id === mpSelId ? " sel" : "") + (m.loaded ? " on" : "");
+		el.setAttribute("role", "option");
+		el.setAttribute("aria-selected", String(!!m.loaded));
+		const state = m.loaded ? "active"
+			: downloading[m.id] != null ? downloading[m.id] + "%"
+			: m.cached ? "ready" : gbLabel(m.sizeGB);
+		el.innerHTML = `<div class="txt"><div class="nm">${shortName(m.label)}</div><div class="own">${m.owner || "—"}</div></div><div class="st">${state}</div>`;
+		el.onclick = () => { mpSelId = m.id; renderPicker(); };
+		el.ondblclick = () => activateModel(m);
+		host.appendChild(el);
+	}
+
+	const sel = list.find((m) => m.id === mpSelId);
+	const d = $("mpDetail");
+	if (!sel) { d.innerHTML = `<div class="mp-empty">No models installed yet.</div>`; return; }
+
+	const pB = paramsB(sel), bits = quantBits(sel.quant), tps = mpSpeeds[sel.id];
+	// Context is only knowable once a model is loaded — llama.cpp reports it from the GGUF header.
+	const ctx = sel.loaded ? ctxWindow : null;
+
+	d.innerHTML = `
+		<div class="mp-d-name">${shortName(sel.label)}</div>
+		<div class="mp-d-own"><span class="mark">◆</span>${sel.owner || "—"}</div>
+		<div class="mp-d-desc">${sel.repo || ""}</div>
+		<div class="mp-bars">
+			${metric("Parameters", paramLabel(pB), logPips(pB, 0.1, 70), "", "Parsed from the model name")}
+			${metric("Speed", tps ? tps + " tok/s" : "not run yet", linPips(tps, 120), "warm", "Your last measured generation speed on this machine")}
+			${metric("Context", ctx ? tok(ctx) : "load to read", linPips(ctx, 262144), "", "Read from the GGUF header when the model loads")}
+			${metric("Precision", sel.quant || "—", linPips(bits, 16), "", "Bits per weight from the quantization tag")}
+		</div>
+		<div class="mp-conf">
+			<div class="mp-conf-h">Configuration</div>
+			${sel.loaded ? `
+				<div class="mp-conf-row">Sampling${tune.inference.temperature == null ? ` <span class="mp-hint">· model default</span>` : ` <span class="mp-hint">· temp ${tune.inference.temperature}</span>`}</div>
+				<div class="mp-seg" id="mpTemp">
+					<button data-t="0.2">Precise</button>
+					<button data-t="0.7">Balanced</button>
+					<button data-t="1">Creative</button>
+				</div>
+				<div class="mp-actions"><button class="deny" id="mpTune">All settings…</button></div>`
+			: `<div class="mp-hint">Load this model to configure sampling.</div>
+				<div class="mp-actions"><button class="approve" id="mpGo">${sel.cached ? "Load model" : "Download · " + gbLabel(sel.sizeGB)}</button></div>`}
+		</div>`;
+
+	if (sel.loaded) {
+		const cur = tune.inference.temperature;
+		for (const b of d.querySelectorAll("#mpTemp button")) {
+			b.classList.toggle("on", cur != null && Math.abs(cur - +b.dataset.t) < 0.001);
+			b.onclick = () => { setTune("inference", "temperature", +b.dataset.t); renderPicker(); sfx.click(); };
+		}
+		$("mpTune").onclick = () => { closePicker(); $("stTune").click(); };
+	} else {
+		$("mpGo").onclick = () => activateModel(sel);
+	}
+}
+function activateModel(m) {
+	if (m.loaded) { closePicker(); return; }
+	if (m.cached) { send({ type: "load", modelId: m.id }); toast("Loading " + shortName(m.label) + "…"); closePicker(); }
+	else startDownload(m.id);
+	sfx.click();
+}
+
+let mpDrawFx = () => {}; // set by the shader IIFE below; lets the popover size its canvas on open
+// Anchor above the trigger, clamped into the viewport — the popover is wider than the
+// Assistant column on purpose, so it has to be allowed to overhang the editor.
+function placePicker() {
+	const pop = $("mpPop"), t = $("mpTrigger").getBoundingClientRect();
+	const w = Math.min(660, window.innerWidth - 16);
+	pop.style.width = w + "px";
+	pop.style.left = Math.max(8, Math.min(t.right - w, window.innerWidth - w - 8)) + "px";
+	pop.style.bottom = (window.innerHeight - t.top + 8) + "px";
+	pop.style.maxHeight = (t.top - 16) + "px";
+}
+function openPicker() {
+	$("mpPop").classList.add("show");
+	$("mpTrigger").setAttribute("aria-expanded", "true");
+	placePicker();
+	$("mpSearch").value = ""; mpSelId = loadedModel ? loadedModel.id : mpSelId;
+	renderPicker();
+	mpDrawFx(); // the canvas measured 0×0 while hidden — size it before the first painted frame
+	$("mpSearch").focus();
+}
+function closePicker() { $("mpPop").classList.remove("show"); $("mpTrigger").setAttribute("aria-expanded", "false"); }
+$("mpTrigger").onclick = () => { $("mpPop").classList.contains("show") ? closePicker() : openPicker(); sfx.click(); };
+$("mpSearch").oninput = renderPicker;
+$("mpAdd").onclick = () => { closePicker(); openHf(); };
+$("mpSearch").onkeydown = (e) => {
+	if (e.key === "Escape") { closePicker(); input.focus(); }
+	if (e.key === "Enter") { const s = (lastModels || []).find((m) => m.id === mpSelId); if (s) activateModel(s); }
+};
+document.addEventListener("mousedown", (e) => {
+	if (!$("mpPop").classList.contains("show")) return;
+	if (!$("mpPop").contains(e.target) && !$("mpTrigger").contains(e.target)) closePicker();
+});
+window.addEventListener("resize", () => { if ($("mpPop").classList.contains("show")) placePicker(); });
+
+// ————— model-picker backdrop —————
+// Raw WebGL, not the three.js CDN build the snippet loads: the app is offline by construction,
+// so a script tag pointing at cdnjs would simply fail to resolve. The fragment shader is the
+// snippet's, unchanged apart from the output tint (the B,G,R swizzle becomes sage / tan /
+// deep-green so it belongs to the theme). `varying vec2 vUv` is dropped — the vertex shader
+// never wrote it, and some drivers refuse to link a fragment-only varying.
+(function () {
+	const canvas = $("modelFx");
+	const gl = canvas.getContext("webgl", { antialias: true, alpha: false });
+	if (!gl) { canvas.remove(); return; }
+
+	const VERT = `attribute vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
+	const FRAG = `
+		#ifdef GL_FRAGMENT_PRECISION_HIGH
+			precision highp float;
+		#else
+			precision mediump float;
+		#endif
+		uniform vec2 resolution;
+		uniform float time;
+
+		float random (in float x) { return fract(sin(x)*1e4); }
+
+		const vec3 SAGE = vec3(0.541, 0.624, 0.482);
+		const vec3 TAN  = vec3(0.631, 0.561, 0.361);
+		const vec3 DEEP = vec3(0.369, 0.431, 0.345);
+		const vec3 BG   = vec3(0.149, 0.137, 0.102);
+
+		void main(void) {
+			vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
+
+			vec2 fMosaicScal = vec2(4.0, 2.0);
+			vec2 vScreenSize = vec2(256,256);
+			uv.x = floor(uv.x * vScreenSize.x / fMosaicScal.x) / (vScreenSize.x / fMosaicScal.x);
+			uv.y = floor(uv.y * vScreenSize.y / fMosaicScal.y) / (vScreenSize.y / fMosaicScal.y);
+
+			float t = time*0.06+random(uv.x)*0.4;
+			float lineWidth = 0.0008;
+
+			vec3 color = vec3(0.0);
+			for(int j = 0; j < 3; j++){
+				for(int i=0; i < 5; i++){
+					color[j] += lineWidth*float(i*i) / abs(fract(t - 0.01*float(j)+float(i)*0.01)*1.0 - length(uv));
+				}
+			}
+
+			color = color / (1.0 + color * 0.9); // roll peaks off to warm cream instead of clipping white
+			gl_FragColor = vec4(BG + color.z * SAGE + color.y * TAN + color.x * DEEP, 1.0);
+		}
+	`;
+	const compile = (type, src) => {
+		const sh = gl.createShader(type);
+		gl.shaderSource(sh, src); gl.compileShader(sh);
+		if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(sh)); return null; }
+		return sh;
+	};
+	const vs = compile(gl.VERTEX_SHADER, VERT), fs = compile(gl.FRAGMENT_SHADER, FRAG);
+	if (!vs || !fs) { canvas.remove(); return; }
+
+	const prog = gl.createProgram();
+	gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+	if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { canvas.remove(); return; }
+	gl.useProgram(prog);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); // one full-screen triangle
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+	const loc = gl.getAttribLocation(prog, "p");
+	gl.enableVertexAttribArray(loc);
+	gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+	const uRes = gl.getUniformLocation(prog, "resolution"), uTime = gl.getUniformLocation(prog, "time");
+	// DPR capped at 1.5: the shader mosaics uv onto a 256-cell grid, so extra device pixels
+	// buy nothing but cost a 15-iteration loop each.
+	function resize() {
+		const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+		const w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+		if (canvas.width === w && canvas.height === h) return;
+		canvas.width = w; canvas.height = h;
+		gl.viewport(0, 0, w, h); gl.uniform2f(uRes, w, h);
+	}
+	const still = window.matchMedia("(prefers-reduced-motion: reduce)");
+	let time = 1.0, running = false;
+	function draw() { resize(); gl.uniform1f(uTime, time); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+	function frame() { if (!running) return; time += 0.05; draw(); requestAnimationFrame(frame); }
+	function start() {
+		if (running) return;
+		if (still.matches) { draw(); return; } // one static frame, no loop
+		running = true; frame();
+	}
+	mpDrawFx = draw;
+	window.addEventListener("resize", draw);
+	if ("ResizeObserver" in window) new ResizeObserver(() => draw()).observe(canvas);
+	// Start unconditionally. The observers below only *pause* — gating the first frame on an
+	// IntersectionObserver callback leaves a dead canvas anywhere those are throttled.
+	start();
+	// The Assistant panel collapses to zero width under 860px, and the whole app hides when
+	// the tab is backgrounded — no reason to keep a per-pixel loop alive for either.
+	document.addEventListener("visibilitychange", () => { if (document.hidden) running = false; else start(); });
+	if ("IntersectionObserver" in window) {
+		new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (!document.hidden) start(); } else running = false; }).observe(canvas);
+	}
+})();
 
 function askConfirm(id, message) {
 	$("confirmMsg").textContent = message; overlay.classList.add("show");
@@ -1248,7 +1513,7 @@ onMsg((m) => {
 		case "eval-error": $("evalStatus").textContent = "⚠️ " + m.message; trainWrite("\n⚠️ " + m.message + "\n"); toast("Eval error"); sfx.error(); break;
 		case "fuse-done": trainWrite("\n✅ Fused → " + m.fusedDir + "\n"); refreshRuns(); toast("Model fused"); break;
 		case "convert-done": trainWrite("\n✅ Added to Assistant: " + m.label + "\n"); send({ type: "status" }); refreshRuns(); toast("Added to Assistant ✓"); sfx.added(); break;
-		case "download-progress": { const pct = m.total ? Math.floor((m.downloaded / m.total) * 100) : 0; downloading[m.modelId] = pct; const c = models.querySelector(`.chip[data-id="${m.modelId}"]`); if (c) setChipProgress(c, pct); if ($("hfOverlay").classList.contains("show")) hfStatus.textContent = `Downloading… ${pct}%`; break; }
+		case "download-progress": { const pct = m.total ? Math.floor((m.downloaded / m.total) * 100) : 0; downloading[m.modelId] = pct; renderPicker(); if ($("hfOverlay").classList.contains("show")) hfStatus.textContent = `Downloading… ${pct}%`; break; }
 		case "download-done": delete downloading[m.modelId]; sfx.added(); if ($("hfOverlay").classList.contains("show")) { hfStatus.textContent = "Added ✓"; setTimeout(() => $("hfOverlay").classList.remove("show"), 800); } break;
 		case "confirm-request": askConfirm(m.id, m.message); sfx.confirm(); break;
 		case "term-out": termWrite(stripAnsi(m.data)); break;
@@ -1363,29 +1628,30 @@ function aiState(s) {
 }
 
 // ————— theming: presets + local AI generation —————
+// Earth-tone family. PRESETS[0] mirrors the :root defaults exactly, so "Sagebrush" == untouched.
 const PRESETS = [
-	{ name: "Midnight", bg: "#06070a", text: "#edeff3", accent: "#0a84ff", keyword: "#ff7ab2", string: "#ff8170", number: "#d9c97c", func: "#6bd4ff", comment: "#7c8aa0", glow1: "#0a84ff", glow2: "#5e5ce6", glow3: "#30d1c8" },
-	{ name: "Aurora", bg: "#05100c", text: "#e9f6ef", accent: "#2fe0a6", keyword: "#7ee787", string: "#a5d6ff", number: "#f0c674", func: "#56d4dd", comment: "#5c8374", glow1: "#21d19f", glow2: "#4a9eff", glow3: "#b06bff" },
-	{ name: "Sunset", bg: "#140a10", text: "#fbeae4", accent: "#ff7e5f", keyword: "#ff8fb1", string: "#ffd08a", number: "#ffb454", func: "#ff9e64", comment: "#9a6a7a", glow1: "#ff6b6b", glow2: "#ff9e64", glow3: "#c56bff" },
-	{ name: "Graphite", bg: "#0c0d10", text: "#e6e8ec", accent: "#9aa4b2", keyword: "#c8b6ff", string: "#b7c4d6", number: "#d9c97c", func: "#a8c7e0", comment: "#5a626e", glow1: "#3a4250", glow2: "#556072", glow3: "#2a3140" },
-	{ name: "Neon", bg: "#04060a", text: "#eafcff", accent: "#00e5ff", keyword: "#ff00e5", string: "#7cff00", number: "#ffe600", func: "#00e5ff", comment: "#4b6a7a", glow1: "#00e5ff", glow2: "#ff00e5", glow3: "#7cff00" },
+	{ name: "Sagebrush", card: "#413c33", bg: "#3a3529", text: "#f0ebdd", accent: "#8a9f7b", keyword: "#a18f5c", string: "#9db18c", number: "#c6ad72", func: "#8a9f7b", comment: "#7e7768" },
+	{ name: "Moss", card: "#2b3327", bg: "#22291f", text: "#e9efe0", accent: "#9db18c", keyword: "#c6ad72", string: "#b6c9a4", number: "#d3bb85", func: "#7fae86", comment: "#6e7a66" },
+	{ name: "Clay", card: "#3a2d26", bg: "#2e241f", text: "#f4e7dd", accent: "#c08a72", keyword: "#b5766a", string: "#cba887", number: "#d8b070", func: "#a89a6d", comment: "#7f6e62" },
+	{ name: "Ash", card: "#302f2b", bg: "#262623", text: "#eceae2", accent: "#a8a595", keyword: "#bfb59a", string: "#a9b3a2", number: "#cbbf9c", func: "#9aa892", comment: "#75736a" },
+	{ name: "Ochre", card: "#3f3625", bg: "#332c1d", text: "#f5ecd8", accent: "#c6a24f", keyword: "#d1a75a", string: "#b7bf80", number: "#e0c274", func: "#a1b07a", comment: "#7f7458" },
 ];
-const VAR_MAP = { bg: "--bg", text: "--tx", accent: "--ac", keyword: "--s-kw", string: "--s-st", number: "--s-nu", func: "--s-fn", comment: "--s-cm", glow1: "--glow1", glow2: "--glow2", glow3: "--glow3" };
+const VAR_MAP = { bg: "--bg", card: "--card", text: "--tx", accent: "--ac", keyword: "--s-kw", string: "--s-st", number: "--s-nu", func: "--s-fn", comment: "--s-cm" };
 const isColor = (v) => typeof v === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$|^(rgb|hsl)a?\(/i.test(v.trim());
 function applyTheme(theme, persist = true) {
 	const root = document.documentElement;
 	for (const [k, cssVar] of Object.entries(VAR_MAP)) if (isColor(theme[k])) root.style.setProperty(cssVar, theme[k].trim());
-	if (persist) { try { localStorage.setItem("llm-theme", JSON.stringify(theme)); } catch {} }
+	if (persist) { try { localStorage.setItem("llm-theme-v2", JSON.stringify(theme)); } catch {} }
 }
 function resetTheme() {
 	Object.values(VAR_MAP).forEach((v) => document.documentElement.style.removeProperty(v));
-	try { localStorage.removeItem("llm-theme"); } catch {}
+	try { localStorage.removeItem("llm-theme-v2"); } catch {}
 }
 function renderPresets() {
 	const host = $("presets"); host.innerHTML = "";
 	for (const p of PRESETS) {
 		const el = document.createElement("div"); el.className = "preset";
-		el.innerHTML = `<div class="sw" style="background:linear-gradient(135deg,${p.glow1},${p.glow2},${p.glow3})"></div><div class="nm">${p.name}</div>`;
+		el.innerHTML = `<div class="sw" style="background:${p.card};border:1px solid ${p.accent}"><i style="background:${p.accent}"></i><i style="background:${p.text}"></i></div><div class="nm">${p.name}</div>`;
 		el.onclick = () => { applyTheme(p); renderColorPickers(); $("themeStatus").textContent = `Applied “${p.name}”.`; sfx.click(); };
 		host.appendChild(el);
 	}
@@ -1394,7 +1660,7 @@ function renderPresets() {
 // ————— manual per-role color pickers (replaces the AI generator) —————
 const COLOR_ROLES = [
 	{ key: "bg", label: "Background" }, { key: "text", label: "Text" }, { key: "accent", label: "Accent" },
-	{ key: "glow1", label: "Glow 1" }, { key: "glow2", label: "Glow 2" }, { key: "glow3", label: "Glow 3" },
+	{ key: "card", label: "Panel" },
 	{ key: "keyword", label: "Keyword" }, { key: "string", label: "String" }, { key: "number", label: "Number" },
 	{ key: "func", label: "Function" }, { key: "comment", label: "Comment" },
 ];
@@ -1419,8 +1685,7 @@ function renderColorPickers() {
 		const inp = row.querySelector("input");
 		inp.oninput = () => {
 			document.documentElement.style.setProperty(VAR_MAP[role.key], inp.value);
-			try { localStorage.setItem("llm-theme", JSON.stringify(currentTheme())); } catch {}
-			// gradient (var(--grad)) references the glow vars directly → updates live, no rebake needed
+			try { localStorage.setItem("llm-theme-v2", JSON.stringify(currentTheme())); } catch {}
 		};
 		host.appendChild(row);
 	}
@@ -1428,10 +1693,10 @@ function renderColorPickers() {
 
 // ————— custom code background (sandboxed iframe; the plain gradient is the default) —————
 const DEFAULT_BG_CODE = `<style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#0b0710}
+  html,body{margin:0;height:100%;overflow:hidden;background:#282419}
   body{background:
-    radial-gradient(60% 60% at 30% 20%,#2a1250,transparent),
-    radial-gradient(50% 50% at 75% 80%,#0f3b4a,transparent),#0b0710;
+    radial-gradient(60% 60% at 30% 20%,#3f4a37,transparent),
+    radial-gradient(50% 50% at 75% 80%,#4a412a,transparent),#282419;
     animation:drift 24s ease-in-out infinite alternate}
   @keyframes drift{to{background-position:20% 10%,-15% -10%,0 0}}
 </style>`;
@@ -1443,7 +1708,7 @@ function applyBgMode(mode) {
 	bgMode = mode;
 	const custom = mode === "custom";
 	bgFrame.style.display = custom ? "block" : "none";
-	document.querySelector(".bg").style.display = custom ? "none" : ""; // hide the gradient layer while custom bg covers it
+	document.querySelector(".bg").style.display = custom ? "none" : ""; // hide the flat layer while a custom bg covers it
 	if (custom && bgFrame.getAttribute("srcdoc") !== bgCode) bgFrame.srcdoc = bgCode;
 	document.querySelectorAll(".bg-mode-seg button").forEach((b) => b.classList.toggle("on", b.dataset.bgmode === mode));
 	try { localStorage.setItem("llm-bg-mode", mode); } catch {}
@@ -1466,62 +1731,12 @@ document.querySelectorAll(".settings-tabs button").forEach((b) => (b.onclick = (
 $("customizeBtn").onclick = () => { renderPresets(); renderColorPickers(); selectSettingsTab("theme"); $("themeStatus").textContent = ""; $("themeOverlay").classList.add("show"); sfx.click(); };
 $("themeClose").onclick = () => $("themeOverlay").classList.remove("show");
 $("themeReset").onclick = () => {
-	resetTheme(); fx = { ...FX_DEFAULTS }; applyFx(fx); buildFx(); $("liteToggle").checked = false; renderColorPickers();
+	resetTheme(); renderColorPickers();
 	bgCode = DEFAULT_BG_CODE; try { localStorage.removeItem("llm-bg-code"); localStorage.removeItem("llm-bg-mode"); } catch {} $("bgCode").value = bgCode; applyBgMode("gradient");
 	$("themeStatus").textContent = "Reset to default.";
 };
 $("themeOverlay").addEventListener("click", (e) => { if (e.target.id === "themeOverlay") $("themeOverlay").classList.remove("show"); });
-try { const saved = localStorage.getItem("llm-theme"); if (saved) applyTheme(JSON.parse(saved), false); } catch {}
-
-// ————— fractal-glass + liquid-glass effect sliders (integer values → CSS vars + SVG filter attrs) —————
-const FX_DEFAULTS = { glassBlur: 9, glassSat: 197, refract: 50, aberration: 1, highlight: 40, border: 0, darken: 0, lite: false };
-const FX_SPEC = [
-	{ group: "Liquid glass", rows: [
-		{ key: "glassBlur", label: "Blur", min: 0, max: 60, unit: "px" },
-		{ key: "glassSat", label: "Saturation", min: 100, max: 260, unit: "%" },
-		{ key: "refract", label: "Refraction", min: 0, max: 60 },
-		{ key: "aberration", label: "Aberration", min: 0, max: 8, unit: "px" },
-		{ key: "highlight", label: "Highlight", min: 0, max: 40, pct: true },
-		{ key: "border", label: "Border", min: 0, max: 30, pct: true },
-		{ key: "darken", label: "Darken", min: 0, max: 80, pct: true },
-	] },
-];
-const fxLabel = (row, v) => (row.unit ? v + row.unit : row.pct ? v + "%" : String(v));
-let fx = { ...FX_DEFAULTS };
-try { const s = localStorage.getItem("llm-fx"); if (s) fx = { ...fx, ...JSON.parse(s) }; } catch {}
-
-// Liquid-glass knobs → CSS vars only (cheap, per-frame-free). The ambient gradient is plain CSS (var(--grad)).
-function applyFx(f, persist = true) {
-	const r = document.documentElement.style;
-	r.setProperty("--glass-blur", f.glassBlur + "px");
-	r.setProperty("--glass-sat", f.glassSat + "%");
-	r.setProperty("--glass-hi", f.highlight / 100);
-	r.setProperty("--brd-a", f.border / 100);
-	r.setProperty("--aberration", f.aberration + "px");
-	r.setProperty("--glass-refract", (f.refract / 3).toFixed(1) + "px"); // slider 0–60 → 0–20px edge depth
-	r.setProperty("--glass-darken", (f.darken / 100).toFixed(3));        // slider 0–80 → 0–0.8 black tint over the glass
-	document.body.classList.toggle("lite", !!f.lite);
-	if (persist) { try { localStorage.setItem("llm-fx", JSON.stringify(f)); } catch {} }
-}
-function buildFx() {
-	const host = $("fxControls"); host.innerHTML = "";
-	for (const g of FX_SPEC) {
-		const wrap = document.createElement("div");
-		wrap.innerHTML = `<div class="fx-group-h">${g.group}</div>`;
-		for (const row of g.rows) {
-			const el = document.createElement("div"); el.className = "fx-row";
-			el.innerHTML = `<label>${row.label}</label><input type="range" min="${row.min}" max="${row.max}" value="${fx[row.key]}"><span class="val">${fxLabel(row, fx[row.key])}</span>`;
-			const inp = el.querySelector("input"), val = el.querySelector(".val");
-			inp.oninput = () => { fx[row.key] = +inp.value; val.textContent = fxLabel(row, fx[row.key]); applyFx(fx); };
-			wrap.appendChild(el);
-		}
-		host.appendChild(wrap);
-	}
-}
-// Lite (performance) toggle — persisted inside the fx object, applied as body.lite
-$("liteToggle").checked = !!fx.lite;
-$("liteToggle").onchange = () => { fx.lite = $("liteToggle").checked; applyFx(fx); sfx.click(); };
-applyFx(fx, false); buildFx();
+try { const saved = localStorage.getItem("llm-theme-v2"); if (saved) applyTheme(JSON.parse(saved), false); } catch {}
 
 // ————— model tuning (per-model presets: sampling live, load knobs on reload) —————
 let tune = { inference: {}, load: {} };
@@ -1686,17 +1901,17 @@ function renderEval(result, lossCurve) {
 		const val = lossCurve.filter((p) => p.valLoss != null).map((p) => ({ x: p.iter, y: p.valLoss }));
 		const series = [];
 		if (train.length) series.push({ name: "train loss", color: "var(--ac)", points: train });
-		if (val.length) series.push({ name: "val loss", color: "#ff8170", points: val });
+		if (val.length) series.push({ name: "val loss", color: "#b5766a", points: val });
 		if (series.length) html += `<div class="eval-chart"><h4>Training loss</h4>${svgLine(series)}</div>`;
 	}
 	const pct = (v) => Math.round(v * 1000) / 10;
 	const n = result && result.scored ? ` <span class="tune-hint">n=${result.scored.rows} rows · ${result.scored.tokens} tokens</span>` : "";
 	// MCQ leads: it's teacher-forced, so it can't be skewed by how verbose a model is.
-	if (result && result.mcq) html += `<div class="eval-chart"><h4>Multiple-choice accuracy — higher is better${n}</h4>${svgBars([{ name: "base", value: pct(result.mcq.base), color: "#8a94a6" }, { name: "tuned", value: pct(result.mcq.tuned), color: "var(--ac)" }], "%")}</div>`;
-	if (result && result.accuracy) html += `<div class="eval-chart"><h4>Free-text accuracy — higher is better</h4>${svgBars([{ name: "base", value: pct(result.accuracy.base), color: "#8a94a6" }, { name: "tuned", value: pct(result.accuracy.tuned), color: "#30d1c8" }], "%")}</div>`;
-	if (result && result.bitsPerByte) html += `<div class="eval-chart"><h4>Bits per byte — lower is better <span class="tune-hint">tokenizer-independent, safe to compare across models</span></h4>${svgBars([{ name: "base", value: result.bitsPerByte.base, color: "#8a94a6" }, { name: "tuned", value: result.bitsPerByte.tuned, color: "var(--ac)" }])}</div>`;
-	if (result && result.perplexity) html += `<div class="eval-chart"><h4>Perplexity — lower is better <span class="tune-hint">per-token: compare within this model only</span></h4>${svgBars([{ name: "base", value: result.perplexity.base, color: "#8a94a6" }, { name: "tuned", value: result.perplexity.tuned, color: "var(--ac)" }])}</div>`;
-	if (result && result.speed && (result.speed.base || result.speed.tuned)) html += `<div class="eval-chart"><h4>Generation speed <span class="tune-hint">diagnostic — varies with batch occupancy and thermals</span></h4>${svgBars([{ name: "base", value: result.speed.base, color: "#8a94a6" }, { name: "tuned", value: result.speed.tuned, color: "#30d1c8" }], " tok/s")}</div>`;
+	if (result && result.mcq) html += `<div class="eval-chart"><h4>Multiple-choice accuracy — higher is better${n}</h4>${svgBars([{ name: "base", value: pct(result.mcq.base), color: "#71856a" }, { name: "tuned", value: pct(result.mcq.tuned), color: "var(--ac)" }], "%")}</div>`;
+	if (result && result.accuracy) html += `<div class="eval-chart"><h4>Free-text accuracy — higher is better</h4>${svgBars([{ name: "base", value: pct(result.accuracy.base), color: "#71856a" }, { name: "tuned", value: pct(result.accuracy.tuned), color: "#a18f5c" }], "%")}</div>`;
+	if (result && result.bitsPerByte) html += `<div class="eval-chart"><h4>Bits per byte — lower is better <span class="tune-hint">tokenizer-independent, safe to compare across models</span></h4>${svgBars([{ name: "base", value: result.bitsPerByte.base, color: "#71856a" }, { name: "tuned", value: result.bitsPerByte.tuned, color: "var(--ac)" }])}</div>`;
+	if (result && result.perplexity) html += `<div class="eval-chart"><h4>Perplexity — lower is better <span class="tune-hint">per-token: compare within this model only</span></h4>${svgBars([{ name: "base", value: result.perplexity.base, color: "#71856a" }, { name: "tuned", value: result.perplexity.tuned, color: "var(--ac)" }])}</div>`;
+	if (result && result.speed && (result.speed.base || result.speed.tuned)) html += `<div class="eval-chart"><h4>Generation speed <span class="tune-hint">diagnostic — varies with batch occupancy and thermals</span></h4>${svgBars([{ name: "base", value: result.speed.base, color: "#71856a" }, { name: "tuned", value: result.speed.tuned, color: "#a18f5c" }], " tok/s")}</div>`;
 	if (result && result.samples && result.samples.length) {
 		const hasRef = result.samples.some((s) => s.reference != null);
 		const mark = (g) => (g ? ` <span class="grade-${g}">${g}</span>` : "");
@@ -1779,7 +1994,20 @@ let currentMode = "manual", cpCount = 0, lastSkills = [];
 const MODES = ["manual", "accept-edits", "plan", "auto"];
 function updateMode(mode) { if (mode) currentMode = mode; const b = $("modeBadge"); if (b) { b.textContent = currentMode; b.style.opacity = currentMode === "plan" ? ".8" : "1"; } }
 function cycleMode() { const i = MODES.indexOf(currentMode); send({ type: "set-mode", mode: MODES[(i + 1) % MODES.length] }); sfx.click(); }
-function updateNet(online) { const d = $("netDot"), l = $("netLabel"); if (l) l.textContent = online ? "Online enabled" : "Offline · no external services"; if (d) { d.style.background = online ? "#ff9f0a" : "#30d158"; d.style.boxShadow = `0 0 8px ${online ? "#ff9f0a" : "#30d158"}`; } }
+// The badge used to read "no external services" unconditionally, which is not true: the model
+// manager talks to huggingface.co to search and download GGUFs, and it has to — there is no way
+// to get a first model onto the machine otherwise. What the switch actually gates is the agent's
+// reach (web tools, remote MCP, URL skill imports). Say that instead of overclaiming.
+function updateNet(online) {
+	const d = $("netDot"), l = $("netLabel");
+	if (l) {
+		l.textContent = online ? "Online tools enabled" : "Local only · your code stays here";
+		l.parentElement.title = online
+			? "The assistant may use web tools and remote MCP servers."
+			: "Inference runs in-process and your files never leave the device. The model manager is the one component that uses the network, and only when you search for or download a model.";
+	}
+	if (d) { d.style.background = online ? "#a18f5c" : "#8a9f7b"; }
+}
 function updateCheckpoints(n) { cpCount = n || 0; const b = $("sessionsBtn"); if (b) b.title = `Sessions · ${cpCount} checkpoint(s) · press Esc twice to undo`; }
 let toastTimer; function toast(text) { const t = $("toast"); t.textContent = text; t.style.opacity = "1"; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.style.opacity = "0"), 2600); }
 
@@ -1899,7 +2127,7 @@ function onFolderOpened(root) {
 	termOut.innerHTML = ""; hist.length = 0; histIdx = 0; termRunning = false;
 	// browser preview → back to placeholder
 	brUrl.value = ""; brFrame.removeAttribute("src");
-	brFrame.srcdoc = "<body style='margin:0;display:grid;place-items:center;height:100vh;background:#0d1017;color:#5b6472;font-family:-apple-system,sans-serif;font-size:14px'>Enter a URL above to preview a site or your local dev server</body>";
+	brFrame.srcdoc = "<body style='margin:0;display:grid;place-items:center;height:100vh;background:#322e23;color:#8a8271;font-family:Merriweather,ui-serif,Georgia,serif;font-size:14px'>Enter a URL above to preview a site or your local dev server</body>";
 	// search
 	$("searchResults").innerHTML = ""; $("searchQuery").value = ""; showSearchView(false);
 	toast("Opened " + root.split("/").filter(Boolean).pop());
@@ -1964,6 +2192,7 @@ const COMMANDS = [
 	{ t: "Toggle Terminal", r: () => toggleDock("terminal") },
 	{ t: "Toggle Browser", r: () => toggleDock("browser") },
 	{ t: "Refresh Explorer", r: () => send({ type: "tree" }) },
+	{ t: "Undo Last File Change", r: () => send({ type: "undo" }) },
 	{ t: "Change Permission Mode", r: cycleMode },
 	{ t: "New Session (/clear)", r: () => { if (hasModel) { input.value = "/clear"; submit(); } } },
 	{ t: "Sessions…", r: () => $("sessionsBtn").click() },

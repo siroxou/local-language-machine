@@ -51,6 +51,24 @@ export interface ModelStatus {
 	quant: string;
 	cached: boolean;
 	loaded: boolean;
+	/** Publisher — the Hugging Face org, or "Local fine-tune" for a converted training run. */
+	owner: string;
+	/** `owner/repo` on the Hub, or the file name for a local fine-tune. Shown as the model's origin. */
+	repo: string;
+}
+
+/**
+ * Split a ModelEntry.modelUri into the publisher and repo the picker shows.
+ * `hf:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/file.gguf` → Qwen · Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
+ * `file:/…/fine-tuned.gguf`                          → Local fine-tune · fine-tuned.gguf
+ */
+export function sourceOf(modelUri: string): { owner: string; repo: string } {
+	if (modelUri.startsWith("hf:")) {
+		const [owner, name] = modelUri.slice(3).split("/");
+		if (owner && name) return { owner, repo: `${owner}/${name}` };
+		return { owner: owner || "Hugging Face", repo: owner || modelUri };
+	}
+	return { owner: "Local fine-tune", repo: modelUri.replace(/^file:/, "").split("/").pop() || modelUri };
 }
 
 // Preference order when auto-loading a cached model on startup.
@@ -94,6 +112,7 @@ export class Orchestrator {
 		const cached = new Set((await listCached()).map((c) => c.id));
 		const models = allModels().map((m) => ({
 			id: m.id, label: m.label, sizeGB: m.sizeGB, quant: m.quant, cached: cached.has(m.id), loaded: m.id === this.#loadedId,
+			...sourceOf(m.modelUri),
 		}));
 		return {
 			models, loaded: this.#loadedId, gpu: this.engine.gpu,

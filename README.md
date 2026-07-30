@@ -28,7 +28,10 @@ you open, and every prompt you send is shipped to a remote server. **Local Langu
 that around:**
 
 - 🔒 **Private by construction.** Inference runs in‑process. Your files, prompts, and generated
-  code stay on disk. The network switch is **off** by default and gates *every* online feature.
+  code stay on disk — they are never sent anywhere. The network switch is **off** by default and
+  gates the assistant's reach: web tools, remote MCP servers, and skill imports from a URL. The one
+  component that uses the network regardless is the model manager, and only when you ask it to
+  search for or download a GGUF — after which the model is cached locally and nothing else phones home.
 - ⚡ **Session‑based inference.** A live context + KV cache means each turn only evaluates new
   tokens — not the whole conversation — so multi‑turn coding stays fast.
 - 🧩 **Real agent, real tools.** The assistant actually reads and edits your files, runs commands,

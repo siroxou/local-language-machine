@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseToolCall, sniffLang } from "./loop.ts";
+import { sourceOf } from "./orchestrator.ts";
 
 const valid = new Set(["list_dir", "read_file", "write_file"]);
 
@@ -36,4 +37,16 @@ test("sniffLang detects language from content (overriding a mislabeled fence)", 
 	assert.equal(sniffLang("const go = () => document.title;"), "javascript");
 	assert.equal(sniffLang("body { color: red; margin: 0; }"), "css");
 	assert.equal(sniffLang("just some explanatory prose"), "");
+});
+
+test("sourceOf splits a hub uri into publisher and repo", () => {
+	assert.deepEqual(sourceOf("hf:Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/qwen2.5-coder-7b-instruct-q4_k_m.gguf"),
+		{ owner: "Qwen", repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF" });
+	assert.deepEqual(sourceOf("hf:bartowski/SmolLM2-135M-Instruct-GGUF/SmolLM2-135M-Instruct-Q4_K_M.gguf"),
+		{ owner: "bartowski", repo: "bartowski/SmolLM2-135M-Instruct-GGUF" });
+});
+
+test("sourceOf labels a converted training run as local", () => {
+	assert.deepEqual(sourceOf("file:/Users/x/.local-language-machine/models/tuned.gguf"),
+		{ owner: "Local fine-tune", repo: "tuned.gguf" });
 });
