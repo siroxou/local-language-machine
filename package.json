@@ -28,6 +28,7 @@
       "output": "release"
     },
     "icon": "assets/icon.png",
+    "artifactName": "${name}-${version}-${arch}.${ext}",
     "afterPack": "scripts/after-pack.cjs",
     "asar": false,
     "files": [
