@@ -14,12 +14,13 @@ build/
 
 # Logs & secrets
 *.log
+# ...except the benchmark trainer output, which is the raw evidence behind the reports
+!bench/*.log
 .env
 .env.*
 
 # Benchmark resume state points at absolute run dirs, so it is machine-specific.
-# The reports and experiment.json are committed; these are not.
+# The reports, experiment.json and trainer logs are committed; these are not.
 bench/*/state.json
-bench/probe-out/
 
 # Model cache lives in ~/.local-language-machine (outside the repo)

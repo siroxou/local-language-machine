@@ -1,0 +1,257 @@
+{
+  "config": {
+    "_comment": "Hyperparameter probe. Qwen diverged at lr 2e-4 / scale 20 while SmolLM2 trained fine — mlx applies `scale` raw, so effective step size grows with model width. Find one (lr, scale) that trains BOTH the widest and narrowest arm stably, then use it for the real matrix.",
+    "dataset": "datasets/kestrel",
+    "suites": {
+      "mem": "test.jsonl"
+    },
+    "shared": {
+      "iters": 200,
+      "loraRank": 16,
+      "batchSize": 4,
+      "maxSeqLen": 256,
+      "numLayers": -1,
+      "warmupSteps": 20,
+      "seed": 42
+    },
+    "cells": [
+      {
+        "id": "q05-lr2e4-s2",
+        "family": "Qwen2.5",
+        "params": 0.494,
+        "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+        "overrides": {
+          "learningRate": 0.0002,
+          "loraScale": 2
+        }
+      },
+      {
+        "id": "q05-lr5e5-s20",
+        "family": "Qwen2.5",
+        "params": 0.494,
+        "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+        "overrides": {
+          "learningRate": 0.00005,
+          "loraScale": 20
+        }
+      },
+      {
+        "id": "q05-lr1e5-s20",
+        "family": "Qwen2.5",
+        "params": 0.494,
+        "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+        "overrides": {
+          "learningRate": 0.00001,
+          "loraScale": 20
+        }
+      },
+      {
+        "id": "q05-lr1e4-s2",
+        "family": "Qwen2.5",
+        "params": 0.494,
+        "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+        "overrides": {
+          "learningRate": 0.0001,
+          "loraScale": 2
+        }
+      },
+      {
+        "id": "sm135-lr2e4-s2",
+        "family": "SmolLM2",
+        "params": 0.135,
+        "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "overrides": {
+          "learningRate": 0.0002,
+          "loraScale": 2
+        }
+      },
+      {
+        "id": "sm135-lr1e4-s2",
+        "family": "SmolLM2",
+        "params": 0.135,
+        "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "overrides": {
+          "learningRate": 0.0001,
+          "loraScale": 2
+        }
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "q05-lr2e4-s2",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+      "trainSeconds": 102,
+      "adapterMB": 33.6,
+      "runId": "2026-07-29T00-26-58-602Z-5d1b259c",
+      "base": {
+        "mem": {
+          "mcq": 0.3016,
+          "acc": 0.0079,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 1.3973,
+          "ppl": 17.8584
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.3889,
+          "acc": 0.1667,
+          "abstain": 0.619,
+          "n": 126,
+          "bpb": 0.1098,
+          "ppl": 1.2543
+        }
+      }
+    },
+    {
+      "id": "q05-lr5e5-s20",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+      "trainSeconds": 20,
+      "adapterMB": 33.6,
+      "runId": "2026-07-29T00-36-00-967Z-6a75b59e",
+      "base": {
+        "mem": {
+          "mcq": 0.3016,
+          "acc": 0.0079,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 1.3973,
+          "ppl": 17.8584
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.3333,
+          "acc": 0.1587,
+          "abstain": 0.5,
+          "n": 126,
+          "bpb": 0.1285,
+          "ppl": 1.3036
+        }
+      }
+    },
+    {
+      "id": "q05-lr1e5-s20",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+      "trainSeconds": 20,
+      "adapterMB": 33.6,
+      "runId": "2026-07-29T00-37-09-735Z-8e0f7d8d",
+      "base": {
+        "mem": {
+          "mcq": 0.3016,
+          "acc": 0.0079,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 1.3973,
+          "ppl": 17.8584
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.5079,
+          "acc": 0.2857,
+          "abstain": 0.5159,
+          "n": 126,
+          "bpb": 0.0921,
+          "ppl": 1.2091
+        }
+      }
+    },
+    {
+      "id": "q05-lr1e4-s2",
+      "family": "Qwen2.5",
+      "params": 0.494,
+      "baseModel": "Qwen/Qwen2.5-0.5B-Instruct",
+      "trainSeconds": 20,
+      "adapterMB": 33.6,
+      "runId": "2026-07-29T00-38-17-531Z-3ac59ea2",
+      "base": {
+        "mem": {
+          "mcq": 0.3016,
+          "acc": 0.0079,
+          "abstain": 0.9921,
+          "n": 126,
+          "bpb": 1.3973,
+          "ppl": 17.8584
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.4524,
+          "acc": 0.2302,
+          "abstain": 0.5238,
+          "n": 126,
+          "bpb": 0.0946,
+          "ppl": 1.2156
+        }
+      }
+    },
+    {
+      "id": "sm135-lr2e4-s2",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "trainSeconds": 12,
+      "adapterMB": 18.68,
+      "runId": "2026-07-29T00-39-23-009Z-3217601c",
+      "base": {
+        "mem": {
+          "mcq": 0.2063,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.4,
+          "ppl": 19.4334
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.3571,
+          "acc": 0.127,
+          "abstain": 0.6111,
+          "n": 126,
+          "bpb": 0.1242,
+          "ppl": 1.3011
+        }
+      }
+    },
+    {
+      "id": "sm135-lr1e4-s2",
+      "family": "SmolLM2",
+      "params": 0.135,
+      "baseModel": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "trainSeconds": 16,
+      "adapterMB": 18.68,
+      "runId": "2026-07-29T00-40-01-455Z-68137a19",
+      "base": {
+        "mem": {
+          "mcq": 0.2063,
+          "acc": 0,
+          "abstain": 0.9841,
+          "n": 126,
+          "bpb": 1.4,
+          "ppl": 19.4334
+        }
+      },
+      "tuned": {
+        "mem": {
+          "mcq": 0.2857,
+          "acc": 0.1429,
+          "abstain": 0.5635,
+          "n": 126,
+          "bpb": 0.1492,
+          "ppl": 1.3719
+        }
+      }
+    }
+  ],
+  "generatedAt": "2026-07-29T00:40:45.336Z"
+}
