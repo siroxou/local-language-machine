@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="llm — local language model">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.62" y2="1">
+      <stop offset="0" stop-color="#A4B592"></stop>
+      <stop offset="0.5" stop-color="#8A9F7B"></stop>
+      <stop offset="1" stop-color="#6D8360"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="38" fill="url(#tile)"></rect>
+  <g transform="rotate(45 80 80)">
+    <rect x="28" y="28" width="104" height="104" rx="22" fill="#211E18"></rect>
+  </g>
+  <g stroke="#A9BD96" stroke-width="9" stroke-linecap="square" fill="none">
+    <path d="M60 64 L76 80 L60 96"></path>
+  </g>
+  <rect x="82" y="87" width="18" height="9" rx="2" fill="#A18F5C"></rect>
+</svg>

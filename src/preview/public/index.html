@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Local Language Machine</title>
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" />
 <style>
 	:root {
 		/* spacing */
@@ -21,6 +22,10 @@
 		--tx: #f0ebdd; --tx-dim: #b5ad9b; --tx-faint: #8a8271;
 		--ac: #8a9f7b; --ac-soft: #8a9f7b33; --ac-fg: #26251b; /* sage primary — dark ink on top */
 		--warn: #a18f5c; /* in-progress states */
+		/* Logo ramp. These are the fallbacks for first paint; applyLogoTheme() overwrites them
+		   with values derived from the live --ac / --bg / --warn, so the mark follows the theme. */
+		--logo-hi: #a4b592; --logo-mid: #8a9f7b; --logo-lo: #6d8360;
+		--logo-ink: #211e18; --logo-line: #a9bd96; --logo-bar: #a18f5c;
 		/* surfaces — flat, opaque, one step apart. No blur, no glow, no gradients. */
 		--bg: #3a3529;      /* page */
 		--card: #413c33;    /* panels, dialogs, menus */
@@ -64,9 +69,14 @@
 	/* ——— title bar ——— */
 	.title { grid-area: title; display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s2); }
 	.brand { display: flex; align-items: center; gap: var(--s1); font-weight: 700; font-size: 14px; white-space: nowrap; }
-	.brand .mark { width: 22px; height: 22px; border-radius: var(--r-xs);
-		background: var(--ac); display: grid; place-items: center;
-		color: var(--ac-fg); font-size: 13px; }
+	/* One <symbol> drives every instance of the mark; size comes from the caller. Custom
+	   properties inherit into the <use> shadow tree, so all of them retheme together. */
+	.logo { display: inline-block; flex: 0 0 auto; vertical-align: -0.15em; }
+	.brand .logo { width: 22px; height: 22px; }
+	.mp-trigger .logo { width: 15px; height: 15px; }
+	.mp-d-own .logo { width: 14px; height: 14px; }
+	.onb-mark .logo { width: 46px; height: 46px; }
+	.preview-title .logo { width: 13px; height: 13px; }
 	.grow { flex: 1; }
 	.seg { display: flex; gap: var(--s-half); padding: var(--s-half); border-radius: var(--r-sm);
 		background: var(--card-2); border: 1px solid var(--brd-soft); }
@@ -164,7 +174,6 @@
 	.mp-trigger:hover { background: var(--card-3); }
 	.mp-trigger .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.mp-trigger .caret { color: var(--tx-faint); font-size: 10px; flex: 0 0 auto; }
-	.mp-trigger .mark { color: var(--ac); flex: 0 0 auto; }
 
 	.mp-pop { position: fixed; z-index: 60; display: none; overflow: hidden;
 		border: 1px solid var(--brd); border-radius: var(--radius); background: #26231a;
@@ -197,7 +206,6 @@
 	.mp-detail { padding: var(--s2); display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 	.mp-d-name { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.mp-d-own { font-size: 12px; color: var(--tx-dim); display: flex; align-items: center; gap: 6px; }
-	.mp-d-own .mark { color: var(--ac); }
 	.mp-d-desc { font-size: 12.5px; color: var(--tx-dim); line-height: 1.5; }
 	.mp-bars { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1) var(--s2); margin-top: var(--s-half); }
 	.mp-bar-h { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 9.5px;
@@ -277,7 +285,7 @@
 	/* ——— onboarding (first-run walkthrough) ——— */
 	.onb { max-width: 560px; width: 92%; }
 	.onb-hero { text-align: center; }
-	.onb-mark { font-size: 32px; color: var(--ac); line-height: 1.1; }
+	.onb-mark { line-height: 0; }
 	.onb h3 { text-align: center; margin: 6px 0 4px; }
 	.onb .sub { text-align: center; }
 	.onb-body { margin: var(--s2) 0 2px; min-height: 152px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
@@ -536,6 +544,20 @@
 </style>
 </head>
 <body>
+	<!-- Brand mark. Every fill is a custom property, so one <symbol> retints with the theme. -->
+	<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+		<symbol id="logo" viewBox="0 0 160 160">
+			<linearGradient id="logoTile" x1="0" y1="0" x2="0.62" y2="1">
+				<stop offset="0" style="stop-color:var(--logo-hi)" />
+				<stop offset="0.5" style="stop-color:var(--logo-mid)" />
+				<stop offset="1" style="stop-color:var(--logo-lo)" />
+			</linearGradient>
+			<rect width="160" height="160" rx="38" fill="url(#logoTile)" />
+			<g transform="rotate(45 80 80)"><rect x="28" y="28" width="104" height="104" rx="22" style="fill:var(--logo-ink)" /></g>
+			<path d="M60 64 L76 80 L60 96" style="stroke:var(--logo-line)" stroke-width="9" stroke-linecap="square" fill="none" />
+			<rect x="82" y="87" width="18" height="9" rx="2" style="fill:var(--logo-bar)" />
+		</symbol>
+	</svg>
 	<!-- Flat backdrop; custom-code backgrounds render in #bgFrame above it. -->
 	<div class="bg"></div>
 	<iframe class="bg-custom" id="bgFrame" title="Custom background" sandbox="allow-scripts" allow="autoplay; fullscreen" scrolling="no"></iframe>
@@ -545,7 +567,7 @@
 
 	<div class="app" id="app">
 		<div class="title">
-			<div class="brand"><span class="mark">◆</span> Local Language Machine</div>
+			<div class="brand"><svg class="logo"><use href="#logo"/></svg> Local Language Machine</div>
 			<div class="grow"></div>
 			<div class="seg">
 				<button id="tFiles" class="on">Explorer</button>
@@ -639,7 +661,7 @@
 				<textarea id="input" rows="1" placeholder="What do you want to do?"></textarea>
 				<div class="composer-bar">
 					<button class="mp-trigger" id="mpTrigger" aria-haspopup="listbox" aria-expanded="false" title="Choose a model">
-						<span class="mark">◆</span><span class="nm" id="mpTriggerName">No model</span><span class="caret">▾</span>
+						<svg class="logo"><use href="#logo"/></svg><span class="nm" id="mpTriggerName">No model</span><span class="caret">▾</span>
 					</button>
 					<span class="grow"></span>
 					<button id="send" title="Send">↑</button>
@@ -675,7 +697,7 @@
 
 	<div class="overlay" id="onboardOverlay">
 		<div class="dialog glass onb">
-			<div class="onb-hero"><div class="onb-mark">◆</div></div>
+			<div class="onb-hero"><div class="onb-mark"><svg class="logo"><use href="#logo"/></svg></div></div>
 			<h3 id="onbTitle"></h3>
 			<div class="sub" id="onbSub"></div>
 			<div class="onb-body" id="onbBody"></div>
@@ -727,7 +749,7 @@
 					<div class="preview-label">Live preview</div>
 					<div class="preview-stage">
 						<div class="glass preview-card">
-							<div class="preview-title">◆ Preview</div>
+							<div class="preview-title"><svg class="logo"><use href="#logo"/></svg> Preview</div>
 							<pre class="preview-code mono hl"><span class="kw">const</span> <span class="fn">theme</span> = <span class="st">"live"</span>;
 <span class="kw">let</span> radius = <span class="nu">8</span>; <span class="cm">// px</span></pre>
 							<button class="preview-accent">Accent</button>
@@ -1203,7 +1225,7 @@ function renderPicker() {
 
 	d.innerHTML = `
 		<div class="mp-d-name">${shortName(sel.label)}</div>
-		<div class="mp-d-own"><span class="mark">◆</span>${sel.owner || "—"}</div>
+		<div class="mp-d-own"><svg class="logo"><use href="#logo"/></svg>${sel.owner || "—"}</div>
 		<div class="mp-d-desc">${sel.repo || ""}</div>
 		<div class="mp-bars">
 			${metric("Parameters", paramLabel(pB), logPips(pB, 0.1, 70), "", "Parsed from the model name")}
@@ -1637,15 +1659,60 @@ const PRESETS = [
 	{ name: "Ochre", card: "#3f3625", bg: "#332c1d", text: "#f5ecd8", accent: "#c6a24f", keyword: "#d1a75a", string: "#b7bf80", number: "#e0c274", func: "#a1b07a", comment: "#7f7458" },
 ];
 const VAR_MAP = { bg: "--bg", card: "--card", text: "--tx", accent: "--ac", keyword: "--s-kw", string: "--s-st", number: "--s-nu", func: "--s-fn", comment: "--s-cm" };
+
+// ————— brand mark: derived from the theme, not hardcoded —————
+// The logo is one accent hue lit from the top-left over a dark facet. Deriving every stop from
+// --ac / --bg / --warn means a preset or a hand-picked colour retints the mark, the header, the
+// onboarding hero and the favicon in one go. The ratios below reproduce the original artwork
+// exactly when the theme is the default sage.
+const hex2rgb = (h) => { const v = (h || "").trim().replace("#", ""); const n = v.length === 3 ? v.split("").map((c) => c + c).join("") : v; return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) || 0); };
+const rgb2hex = (a) => "#" + a.map((n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => rgb2hex(hex2rgb(a).map((v, i) => v + (hex2rgb(b)[i] - v) * t));
+function logoRamp() {
+	const cs = getComputedStyle(document.documentElement);
+	const ac = toHex6(cs.getPropertyValue("--ac")) || "#8a9f7b";
+	const bg = toHex6(cs.getPropertyValue("--bg")) || "#3a3529";
+	// The cursor bar is the mark's second tone. --warn is fixed, so it would stay tan under a
+	// purple accent; --s-nu is a themeable role (the "Number" swatch) and stays warm in every
+	// preset, which keeps the two-tone reading intact.
+	const bar = mix(toHex6(cs.getPropertyValue("--s-nu")) || "#c6ad72", "#000000", 0.15);
+	return {
+		"--logo-hi": mix(ac, "#ffffff", 0.22),
+		"--logo-mid": ac,
+		"--logo-lo": mix(ac, "#000000", 0.22),
+		"--logo-ink": mix(bg, "#000000", 0.45),
+		"--logo-line": mix(ac, "#ffffff", 0.28),
+		"--logo-bar": bar,
+	};
+}
+function logoSvg(ramp, px) {
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="${px}" height="${px}">`
+		+ `<linearGradient id="g" x1="0" y1="0" x2="0.62" y2="1">`
+		+ `<stop offset="0" stop-color="${ramp["--logo-hi"]}"/><stop offset="0.5" stop-color="${ramp["--logo-mid"]}"/><stop offset="1" stop-color="${ramp["--logo-lo"]}"/>`
+		+ `</linearGradient>`
+		+ `<rect width="160" height="160" rx="38" fill="url(#g)"/>`
+		+ `<g transform="rotate(45 80 80)"><rect x="28" y="28" width="104" height="104" rx="22" fill="${ramp["--logo-ink"]}"/></g>`
+		+ `<path d="M60 64 L76 80 L60 96" stroke="${ramp["--logo-line"]}" stroke-width="9" stroke-linecap="square" fill="none"/>`
+		+ `<rect x="82" y="87" width="18" height="9" rx="2" fill="${ramp["--logo-bar"]}"/></svg>`;
+}
+function applyLogoTheme() {
+	const ramp = logoRamp();
+	for (const [k, v] of Object.entries(ramp)) document.documentElement.style.setProperty(k, v);
+	// A data-URI favicon can't read custom properties, so bake the same ramp into its markup.
+	const el = $("favicon");
+	if (el) el.href = "data:image/svg+xml," + encodeURIComponent(logoSvg(ramp, 64));
+}
 const isColor = (v) => typeof v === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$|^(rgb|hsl)a?\(/i.test(v.trim());
 function applyTheme(theme, persist = true) {
 	const root = document.documentElement;
 	for (const [k, cssVar] of Object.entries(VAR_MAP)) if (isColor(theme[k])) root.style.setProperty(cssVar, theme[k].trim());
+	applyLogoTheme();
 	if (persist) { try { localStorage.setItem("llm-theme-v2", JSON.stringify(theme)); } catch {} }
 }
 function resetTheme() {
 	Object.values(VAR_MAP).forEach((v) => document.documentElement.style.removeProperty(v));
 	try { localStorage.removeItem("llm-theme-v2"); } catch {}
+	applyLogoTheme();
 }
 function renderPresets() {
 	const host = $("presets"); host.innerHTML = "";
@@ -1685,6 +1752,7 @@ function renderColorPickers() {
 		const inp = row.querySelector("input");
 		inp.oninput = () => {
 			document.documentElement.style.setProperty(VAR_MAP[role.key], inp.value);
+			applyLogoTheme();
 			try { localStorage.setItem("llm-theme-v2", JSON.stringify(currentTheme())); } catch {}
 		};
 		host.appendChild(row);
@@ -1737,6 +1805,7 @@ $("themeReset").onclick = () => {
 };
 $("themeOverlay").addEventListener("click", (e) => { if (e.target.id === "themeOverlay") $("themeOverlay").classList.remove("show"); });
 try { const saved = localStorage.getItem("llm-theme-v2"); if (saved) applyTheme(JSON.parse(saved), false); } catch {}
+applyLogoTheme();
 
 // ————— model tuning (per-model presets: sampling live, load knobs on reload) —————
 let tune = { inference: {}, load: {} };

@@ -1,6 +1,8 @@
 <div align="center">
 
-# ◆ Local Language Machine
+<img src="assets/logo.svg" alt="" width="76" height="76" />
+
+# Local Language Machine
 
 ### All‑in‑one, fully offline AI coding — self‑contained inference, zero external services.
 
