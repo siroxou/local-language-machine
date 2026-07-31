@@ -1,6 +1,6 @@
 {
   "name": "local-language-machine",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "private": true,
   "description": "All-in-one, fully offline local AI coding — self-contained inference, zero external services.",
   "author": "Siroxou",
@@ -44,7 +44,9 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ],
       "category": "public.app-category.developer-tools"
@@ -53,7 +55,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -66,7 +70,9 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Development"
