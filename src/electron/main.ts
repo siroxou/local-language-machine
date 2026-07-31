@@ -94,7 +94,7 @@ function createWindow(): BrowserWindow {
 		minWidth: 900,
 		minHeight: 600,
 		title: "Local Language Machine",
-		backgroundColor: "#0b0710", // matches the UI, so there is no white flash on launch
+		backgroundColor: "#3a3529", // the UI's --bg, so there is no flash of a different colour on launch
 	});
 
 	// Links and the browser panel's window.open go to the real browser, not a new shell.

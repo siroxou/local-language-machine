@@ -6,6 +6,9 @@
 import type { ToolDef } from "../inference/engine.ts";
 
 const MAX_TEXT = 20_000;
+// fetch has no default timeout: a host that accepts the connection and then stalls would
+// hang the agent turn for good, with nothing in the UI able to cancel it.
+const FETCH_TIMEOUT_MS = 20_000;
 
 /** Strip a fetched HTML document down to readable text. regex strip, not a DOM parse. */
 function htmlToText(html: string): string {
@@ -27,7 +30,7 @@ export function webTools(): Record<string, ToolDef> {
 			description: "Fetch a URL and return its readable text content (online).",
 			params: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
 			async handler({ url }: { url: string }) {
-				const res = await fetch(url, { headers: { "user-agent": "LocalLanguageMachine/0.1" } });
+				const res = await fetch(url, { headers: { "user-agent": "LocalLanguageMachine/0.1" }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 				if (!res.ok) return { error: `HTTP ${res.status}` };
 				const body = await res.text();
 				const text = /html/i.test(res.headers.get("content-type") ?? "") ? htmlToText(body) : body;
@@ -43,6 +46,7 @@ export function webTools(): Record<string, ToolDef> {
 				// real search API if results get flaky.
 				const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
 					headers: { "user-agent": "Mozilla/5.0" },
+					signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 				});
 				if (!res.ok) return { error: `HTTP ${res.status}` };
 				const html = await res.text();

@@ -147,6 +147,16 @@ export class Orchestrator {
 
 	/** (Re)create the chat session for the current model + root. Cheap — does NOT reload the model file. */
 	async #startSession(): Promise<void> {
+		// Drop the outgoing session's context first. Replacing #chat without disposing leaks a
+		// whole KV cache — ~7GB on a 7B at n_ctx 131072 — and restarts are routine: a model
+		// switch, Open Folder, or editing the system prompt each trigger one. Disposing before
+		// allocating the replacement also keeps peak memory from holding two at once.
+		// The model may already be gone (load() unloads first), which makes dispose throw.
+		try {
+			this.#chat?.dispose();
+		} catch {}
+		this.#chat = undefined;
+
 		await this.#ensureMcp();
 		const tools = this.#buildToolSet();
 		const overview = await this.#workspaceOverview();

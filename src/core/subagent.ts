@@ -44,6 +44,13 @@ export function discoverAgents(root: string): AgentDef[] {
 
 const noop = () => {};
 const SUBAGENT_SYSTEM = "You are a focused sub-agent. Complete the delegated task using your read-only tools, then reply with a concise result. Do not ask questions.";
+/**
+ * Bounded window for the delegated context. Inheriting the model's own would allocate a
+ * second full KV cache alongside the main session — ~7GB on a 7B at n_ctx 131072 — and the
+ * model can reach for `task` at any point in a turn. 32k still fits several capped file
+ * reads across the loop's six tool steps.
+ */
+const SUBAGENT_CONTEXT_TOKENS = 32_768;
 
 /**
  * Run a delegated task in an isolated context and return its final text.
@@ -56,7 +63,7 @@ export async function spawnSubagent(
 	readonlyTools: Record<string, ToolDef>,
 	agent?: AgentDef,
 ): Promise<string> {
-	const session = await engine.createSession({ systemPrompt: agent?.systemPrompt || SUBAGENT_SYSTEM });
+	const session = await engine.createSession({ systemPrompt: agent?.systemPrompt || SUBAGENT_SYSTEM, contextSize: SUBAGENT_CONTEXT_TOKENS });
 	try {
 		return await runAgentLoop({
 			session,

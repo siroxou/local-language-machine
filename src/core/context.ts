@@ -11,7 +11,17 @@ import type { ChatHistoryItem, InferenceEngine } from "../native/inference/engin
 const CHARS_PER_TOKEN = 4;
 /** Compaction trigger, in characters (~6k tokens). Below the context of the smallest bundled model. */
 export const COMPACT_AT_CHARS = 24_000;
-const KEEP_RECENT = 4; // most-recent non-system items kept verbatim
+const KEEP_RECENT = 4; // most-recent non-system items kept
+/**
+ * Per-item cap on those kept turns. Without it a single oversized item — a pasted file,
+ * or a read_file result fed back through the loop — survives every splice, so history never
+ * drops under COMPACT_AT_CHARS and the next turn compacts again, and the next, each one a
+ * full summarization pass. 4 × 3k plus the summary still clears the threshold next to a
+ * ~5k system prompt.
+ */
+const KEEP_ITEM_CHARS = 3_000;
+/** Window for the throwaway summarization session — see summarizeHistory. */
+const SUMMARY_CONTEXT_TOKENS = 16_384;
 
 function itemText(item: any): string {
 	if (typeof item?.text === "string") return item.text;
@@ -39,11 +49,19 @@ export function contextReport(history: ChatHistoryItem[]): string {
 	return `~${estimateTokens(history)} tokens (${chars.toLocaleString()} chars) across ${history.length} items: ${parts}.`;
 }
 
+/** Trim one kept turn down to KEEP_ITEM_CHARS. Only `text` items grow without bound — model
+ *  responses are already capped by maxTokens — and those are the pastes and tool results. */
+function capItem(item: ChatHistoryItem): ChatHistoryItem {
+	const text = (item as any).text;
+	if (typeof text !== "string" || text.length <= KEEP_ITEM_CHARS) return item;
+	return { ...item, text: `${text.slice(0, KEEP_ITEM_CHARS)}\n…[${text.length - KEEP_ITEM_CHARS} chars trimmed during compaction]` } as ChatHistoryItem;
+}
+
 /** Replace the middle of history with a summary note, keeping system items and the last few turns. */
 export function spliceSummary(history: ChatHistoryItem[], summary: string, keepRecent = KEEP_RECENT): ChatHistoryItem[] {
 	const system = history.filter((h: any) => h.type === "system");
 	const rest = history.filter((h: any) => h.type !== "system");
-	const recent = rest.slice(-keepRecent);
+	const recent = rest.slice(-keepRecent).map(capItem);
 	const note = { type: "user", text: `[Summary of earlier conversation]\n${summary}` } as unknown as ChatHistoryItem;
 	return [...system, note, ...recent];
 }
@@ -52,8 +70,12 @@ export function spliceSummary(history: ChatHistoryItem[], summary: string, keepR
 export async function summarizeHistory(engine: InferenceEngine, history: ChatHistoryItem[], keepRecent = KEEP_RECENT): Promise<string> {
 	const older = history.filter((h: any) => h.type !== "system").slice(0, -keepRecent);
 	const transcript = older.map((h: any) => `${h.type}: ${itemText(h)}`).join("\n").slice(0, 40_000);
+	// 40k chars ≈ 10k tokens in, ~300 out. Sizing this session explicitly matters: inheriting
+	// the model's own window allocates a second full KV cache — on a 7B at n_ctx 131072 that is
+	// another ~7GB, spiked on every compaction.
 	const session = await engine.createSession({
 		systemPrompt: "You compress conversations. Output only a concise summary — no preamble.",
+		contextSize: SUMMARY_CONTEXT_TOKENS,
 	});
 	try {
 		return await session.prompt(

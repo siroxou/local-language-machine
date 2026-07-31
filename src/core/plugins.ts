@@ -73,6 +73,12 @@ export function importFrom(src: string): ImportResult {
 /** Clone a git repo (shallow) and import from it. Caller must gate this behind settings.online. */
 export function importFromGit(url: string): ImportResult {
 	const dir = mkdtempSync(join(tmpdir(), "llm-import-"));
-	execFileSync("git", ["clone", "--depth", "1", url, dir], { stdio: "ignore" });
+	// execFileSync blocks the event loop, so an unreachable host or a credential prompt would
+	// freeze the whole server, not just this import. Cap it, and refuse the prompt outright.
+	execFileSync("git", ["clone", "--depth", "1", url, dir], {
+		stdio: "ignore",
+		timeout: 60_000,
+		env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+	});
 	return importFrom(dir);
 }

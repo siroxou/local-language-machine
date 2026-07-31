@@ -59,7 +59,9 @@ const orch = new Orchestrator(engine, ROOT);
 // Replace every match of `query` across the workspace, snapshotting each file first so
 // Esc-Esc can undo the whole operation. Returns how many files/occurrences changed.
 async function replaceAll(query: string, replacement: string, opts: { regex?: boolean; caseSensitive?: boolean }) {
-	const { matches } = await searchWorkspace(ROOT, query, opts);
+	// `truncated` matters here: the file list comes from a capped search, so a hit past the
+	// cap is never rewritten. Pass it on rather than reporting a partial pass as a complete one.
+	const { matches, truncated } = await searchWorkspace(ROOT, query, opts);
 	const files = [...new Set(matches.map((m) => m.path))];
 	const pattern = opts.regex ? query : escapeRegex(query);
 	const re = new RegExp(pattern, "g" + (opts.caseSensitive ? "" : "i"));
@@ -70,7 +72,7 @@ async function replaceAll(query: string, replacement: string, opts: { regex?: bo
 		count += (content.match(re) ?? []).length;
 		await write(ROOT, rel, content.replace(re, replacement));
 	}
-	return { files: files.length, count };
+	return { files: files.length, count, truncated };
 }
 
 const MIME: Record<string, string> = {
@@ -148,7 +150,13 @@ wss.on("connection", (ws) => {
 	void sendStatus();
 	send({ type: "term-cwd", cwd: termCwd });
 
-	ws.on("close", () => child?.kill());
+	// A turn awaiting confirmation never resolves once its client is gone: the agent loop
+	// would sit on that promise for the life of the process. Deny everything still pending.
+	ws.on("close", () => {
+		child?.kill();
+		for (const resolve of pending.values()) resolve(false);
+		pending.clear();
+	});
 
 	ws.on("message", async (raw) => {
 		let msg: any;

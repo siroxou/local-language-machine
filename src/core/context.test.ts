@@ -2,7 +2,7 @@
 // prompt + recent turns while replacing the middle with a summary.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { historyChars, estimateTokens, spliceSummary } from "./context.ts";
+import { historyChars, estimateTokens, spliceSummary, needsCompaction, COMPACT_AT_CHARS } from "./context.ts";
 
 const hist = [
 	{ type: "system", text: "sys" },
@@ -24,4 +24,24 @@ test("spliceSummary keeps the system prompt + recent turns, replaces the middle"
 	assert.equal(out[0].type, "system");
 	assert.match(out[1].text, /SUMMARY/);
 	assert.equal(out[3].text, "u3"); // most recent kept verbatim
+});
+
+// The regression that made a pasted file cost a full summarization pass on every following
+// turn: an oversized item sat inside the kept window, so history never came back under the
+// threshold and needsCompaction stayed true forever.
+test("splicing gets an oversized recent turn under the compaction threshold in one pass", () => {
+	const huge = [
+		{ type: "system", text: "S".repeat(5_000) },
+		{ type: "user", text: "u1" },
+		{ type: "model", response: ["m1"] },
+		{ type: "user", text: "H".repeat(100_000) }, // a pasted file, or a read_file result fed back
+		{ type: "model", response: ["m2"] },
+	] as any;
+	assert.equal(needsCompaction(huge), true);
+
+	const out = spliceSummary(huge, "a short summary");
+	assert.equal(needsCompaction(out), false, "one compaction pass must clear the threshold");
+	assert.ok(historyChars(out) < COMPACT_AT_CHARS);
+	assert.ok(!out.some((h: any) => h.text?.length > 100_000), "the oversized turn must be trimmed, not carried over");
+	assert.match((out.at(-2) as any).text, /trimmed during compaction/);
 });

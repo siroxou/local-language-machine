@@ -54,16 +54,19 @@
 	}
 
 	/* ——— app layout: title / (files · editor · agent) / status ——— */
+	/* Each side panel's width is its own custom property, so the hidden states and the
+	   narrow-window rules below set one value each instead of enumerating every combination —
+	   which is how the responsive rules used to win over the toggle and strand the panel. */
 	.app {
 		position: relative; z-index: 1; height: 100vh; display: grid; gap: var(--s1); padding: var(--s1);
-		grid-template-columns: 258px minmax(0,1fr) 384px;
+		--col-files: 258px; --col-agent: 384px;
+		grid-template-columns: var(--col-files) minmax(0,1fr) var(--col-agent);
 		grid-template-rows: 46px minmax(0,1fr) 28px;
 		grid-template-areas: "title title title" "files editor agent" "status status status";
 		transition: grid-template-columns .42s cubic-bezier(.22,.9,.24,1);
 	}
-	.app.hide-agent { grid-template-columns: 258px minmax(0,1fr) 0; }
-	.app.hide-files { grid-template-columns: 0 minmax(0,1fr) 384px; }
-	.app.hide-agent.hide-files { grid-template-columns: 0 minmax(0,1fr) 0; }
+	.app.hide-files { --col-files: 0; }
+	.app.hide-agent { --col-agent: 0; }
 	.hide-agent .agent, .hide-files .files { opacity: 0; pointer-events: none; }
 
 	/* ——— title bar ——— */
@@ -539,8 +542,18 @@
 	.findbar button:hover { color: var(--tx); background: var(--card-2); }
 	.findbar .cnt { font-size: 11px; color: var(--tx-faint); min-width: 58px; text-align: center; }
 
-	@media (max-width: 1180px) { .app { grid-template-columns: 0 minmax(0,1fr) 360px; } .files { opacity: 0; pointer-events: none; } }
-	@media (max-width: 860px) { .app { grid-template-columns: 0 minmax(0,1fr) 0; } .agent { opacity: 0; pointer-events: none; } }
+	/* Narrow windows fold the side panels away by default — but only until the user asks for
+	   one back. `show-files`/`show-agent` are set by the title-bar toggles; without the :not()
+	   these rules pinned the column at 0 and the Explorer button did nothing under 1180px. */
+	@media (max-width: 1180px) {
+		.app { --col-agent: 360px; }
+		.app:not(.show-files) { --col-files: 0; }
+		.app:not(.show-files) .files { opacity: 0; pointer-events: none; }
+	}
+	@media (max-width: 860px) {
+		.app:not(.show-agent) { --col-agent: 0; }
+		.app:not(.show-agent) .agent { opacity: 0; pointer-events: none; }
+	}
 </style>
 </head>
 <body>
@@ -645,10 +658,10 @@
 							<button id="brBack" title="Back">‹</button>
 							<button id="brFwd" title="Forward">›</button>
 							<button id="brReload" title="Reload">⟳</button>
-							<input id="brUrl" class="mono" placeholder="http://localhost:3000" spellcheck="false" autocomplete="off" />
+							<input id="brUrl" class="mono" placeholder="http://localhost:3000  ·  /index.html" title="A URL, or a leading-slash path to preview a file from this workspace — e.g. /game.html" spellcheck="false" autocomplete="off" />
 							<button id="brGo">Go</button>
 						</div>
-						<iframe id="brFrame" srcdoc="&lt;body style='margin:0;display:grid;place-items:center;height:100vh;background:#322e23;color:#8a8271;font-family:Merriweather,ui-serif,Georgia,serif;font-size:14px'&gt;Enter a URL above to preview a site or your local dev server&lt;/body&gt;"></iframe>
+						<iframe id="brFrame" srcdoc="&lt;body style='margin:0;display:grid;place-items:center;height:100vh;background:#322e23;color:#8a8271;font-family:Merriweather,ui-serif,Georgia,serif;font-size:14px'&gt;Enter a URL above — or a workspace path like /index.html — to preview it&lt;/body&gt;"></iframe>
 					</div>
 				</div>
 			</div>
@@ -1037,10 +1050,9 @@ code.addEventListener("keydown", (e) => {
 	if (e.key === "Tab") { e.preventDefault(); const s = code.selectionStart, en = code.selectionEnd;
 		code.value = code.value.slice(0, s) + "  " + code.value.slice(en); code.selectionStart = code.selectionEnd = s + 2;
 		const f = files.get(active); if (f) { f.content = code.value; f.dirty = true; } renderTabs(); renderCode(); }
-	if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); if (active) send({ type: "save", path: active, content: code.value }); }
 });
 
-// live-stream model-written code into a draft editor tab (unsaved — ⌘S to keep)
+// live-stream model-written code into an editor tab; endCodeDraft writes it to disk (checkpointed, so Esc-Esc rewinds it)
 let codeTarget = null, codeRaf = 0;
 function openCodeDraft(path, lang) {
 	codeTarget = path;
@@ -1554,7 +1566,7 @@ onMsg((m) => {
 		case "deleted": toast("Deleted " + m.path.split("/").pop()); if (files.has(m.path)) closeTab(m.path); break;
 		case "search-results": renderSearchResults(m); break;
 		case "search-error": $("searchResults").innerHTML = '<div class="sr-file">⚠️ ' + m.message + "</div>"; break;
-		case "replaced": toast(`Replaced ${m.count} occurrence(s) in ${m.files} file(s)`); runSearch(); break;
+		case "replaced": toast(`Replaced ${m.count} occurrence(s) in ${m.files} file(s)` + (m.truncated ? " — hit the search cap, run it again to catch the rest" : "")); runSearch(); break;
 	}
 });
 
@@ -1597,7 +1609,11 @@ termInput.addEventListener("keydown", (e) => {
 // browser
 function browserGo(u) {
 	u = (u || "").trim(); if (!u) return;
-	if (!/^[a-z]+:\/\//i.test(u)) u = (/^(localhost|127\.|\d+\.\d+\.\d+\.\d+)/.test(u) ? "http://" : "https://") + u;
+	// A leading "/" means a file in the workspace — the server serves those from this origin,
+	// which is how a page the model just wrote gets previewed. Prefixing a protocol instead
+	// turned "/game.html" into "https:///game.html". Everything else is a host.
+	if (u.startsWith("/")) u = location.origin + u;
+	else if (!/^[a-z]+:\/\//i.test(u)) u = (/^(localhost|127\.|\d+\.\d+\.\d+\.\d+)/.test(u) ? "http://" : "https://") + u;
 	brUrl.value = u; brFrame.removeAttribute("srcdoc"); brFrame.src = u;
 }
 brUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") browserGo(brUrl.value); });
@@ -2055,8 +2071,30 @@ function renderHfFiles(repoId, files) {
 }
 
 // ————— panel toggles (code-first: hide the assistant/explorer) —————
-$("tFiles").onclick = () => { $("tFiles").classList.toggle("on"); $("app").classList.toggle("hide-files"); sfx.click(); };
-$("tAgent").onclick = () => { $("tAgent").classList.toggle("on"); $("app").classList.toggle("hide-agent"); sfx.click(); };
+// Panel toggles. `show-*` is the explicit "I want this open" that outranks the narrow-window
+// auto-fold; the media queries decide the rest. syncPanels keeps each button lit only while its
+// panel is actually on screen — otherwise a folded panel still reads as "on" and the button
+// looks broken when the first click appears to do nothing.
+const narrowFiles = matchMedia("(max-width: 1180px)");
+const narrowAgent = matchMedia("(max-width: 860px)");
+function syncPanels() {
+	const app = $("app").classList;
+	$("tFiles").classList.toggle("on", !app.contains("hide-files") && (!narrowFiles.matches || app.contains("show-files")));
+	$("tAgent").classList.toggle("on", !app.contains("hide-agent") && (!narrowAgent.matches || app.contains("show-agent")));
+}
+function togglePanel(btn, hide, show, narrow) {
+	const app = $("app").classList;
+	const visible = !app.contains(hide) && (!narrow.matches || app.contains(show));
+	app.toggle(hide, visible);
+	app.toggle(show, !visible);
+	syncPanels();
+	sfx.click();
+}
+$("tFiles").onclick = () => togglePanel($("tFiles"), "hide-files", "show-files", narrowFiles);
+$("tAgent").onclick = () => togglePanel($("tAgent"), "hide-agent", "show-agent", narrowAgent);
+narrowFiles.addEventListener("change", syncPanels);
+narrowAgent.addEventListener("change", syncPanels);
+syncPanels();
 
 // ————— permission mode · network · checkpoints —————
 let currentMode = "manual", cpCount = 0, lastSkills = [];
@@ -2316,7 +2354,10 @@ $("findReplaceAll").onclick = () => { const q = $("findInput").value; if (!q) re
 // ————— shortcuts: Cmd+Shift+P palette · Cmd+Shift+F find-in-files · Cmd+F find · Cmd+G go-to-line —————
 document.addEventListener("keydown", (e) => {
 	const mod = e.metaKey || e.ctrlKey;
-	if (mod && e.shiftKey && (e.key === "P" || e.key === "p")) { e.preventDefault(); openPalette(); }
+	// Save is document-level, not on the textarea: the file is still "the open file" when focus
+	// has moved to the tree, the composer or the terminal, and ⌘S there used to do nothing.
+	if (mod && !e.shiftKey && (e.key === "s" || e.key === "S")) { if (active) { e.preventDefault(); send({ type: "save", path: active, content: files.get(active)?.content ?? code.value }); } }
+	else if (mod && e.shiftKey && (e.key === "P" || e.key === "p")) { e.preventDefault(); openPalette(); }
 	else if (mod && e.shiftKey && (e.key === "F" || e.key === "f")) { e.preventDefault(); showSearchView(true); }
 	else if (mod && !e.shiftKey && (e.key === "f" || e.key === "F")) { if (active) { e.preventDefault(); openFind(); } }
 	else if (mod && (e.key === "g" || e.key === "G")) { if (active) { e.preventDefault(); goToLinePrompt(); } }

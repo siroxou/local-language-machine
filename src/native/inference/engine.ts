@@ -91,7 +91,9 @@ export interface InferenceEngine {
 	/** Resolved context window (tokens) of the current session, or undefined if no model loaded. */
 	readonly contextSize: number | undefined;
 	load(opts: LoadOptions): Promise<void>;
-	createSession(opts?: { systemPrompt?: string }): Promise<ChatSession>;
+	/** `contextSize` overrides the model's own window for this session only — a short-lived
+	 *  helper session (summarization) must not allocate a second full-size KV cache. */
+	createSession(opts?: { systemPrompt?: string; contextSize?: number }): Promise<ChatSession>;
 	/** Set the sampling defaults applied to every subsequent prompt. Live — no reload. */
 	setSampling(opts: SamplingOptions): void;
 	unload(): Promise<void>;
@@ -141,14 +143,18 @@ export class LlamaCppEngine implements InferenceEngine {
 		};
 	}
 
-	async createSession(opts: { systemPrompt?: string } = {}): Promise<ChatSession> {
+	async createSession(opts: { systemPrompt?: string; contextSize?: number } = {}): Promise<ChatSession> {
 		const model = this.#model;
 		const llama = this.#llama;
 		if (!model || !llama) throw new Error("Engine has no model loaded; call load() first.");
 		const self = this; // the prompt wrapper reads self.#sampling at call time, so live tuning changes apply next turn
 
-		const context = await model.createContext(this.#contextOpts);
-		this.#contextSize = context.contextSize; // resolved n_ctx for the status bar
+		const context = await model.createContext(
+			opts.contextSize ? { ...this.#contextOpts, contextSize: opts.contextSize } : this.#contextOpts,
+		);
+		// Only the main session defines the window the status bar reports — a sized helper
+		// session would otherwise overwrite it with its own much smaller number.
+		if (!opts.contextSize) this.#contextSize = context.contextSize;
 		const sequence = context.getSequence();
 		const session = new LlamaChatSession({
 			contextSequence: sequence,

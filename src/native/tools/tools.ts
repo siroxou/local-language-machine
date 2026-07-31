@@ -60,11 +60,19 @@ export async function walkFiles(dir: string, root: string, visit: (abs: string, 
 	}
 }
 
+// Without a timeout a long-running command the model picks (a dev server, a watch task,
+// anything waiting on stdin) never resolves, and the whole chat turn hangs with no way to
+// cancel it. Kill it instead and hand the model a result it can reason about.
+const EXEC_TIMEOUT_MS = 120_000;
+
 async function defaultExec(command: string, cwd: string): Promise<ExecResult> {
 	try {
-		const { stdout, stderr } = await execAsync(command, { cwd, maxBuffer: 10 * 1024 * 1024 });
+		const { stdout, stderr } = await execAsync(command, { cwd, maxBuffer: 10 * 1024 * 1024, timeout: EXEC_TIMEOUT_MS, killSignal: "SIGKILL" });
 		return { stdout, stderr, exitCode: 0 };
 	} catch (e: any) {
+		if (e?.killed) {
+			return { stdout: e.stdout ?? "", stderr: `Command timed out after ${EXEC_TIMEOUT_MS / 1000}s and was killed. Long-running processes must be started by the user in the terminal.`, exitCode: 124 };
+		}
 		return { stdout: e.stdout ?? "", stderr: e.stderr ?? String(e?.message ?? e), exitCode: e.code ?? 1 };
 	}
 }

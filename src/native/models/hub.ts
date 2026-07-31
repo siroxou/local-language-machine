@@ -24,8 +24,12 @@ function authHeaders(): Record<string, string> {
 	return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+// The model manager runs these on a click, so a stalled connection would leave the panel
+// spinning with no error and no way out. fetch has no default timeout — give it one.
+const HF_TIMEOUT_MS = 20_000;
+
 async function hfGet(path: string): Promise<unknown> {
-	const res = await fetch(`${HF}${path}`, { headers: authHeaders() });
+	const res = await fetch(`${HF}${path}`, { headers: authHeaders(), signal: AbortSignal.timeout(HF_TIMEOUT_MS) });
 	if (res.status === 429) throw new Error("Hugging Face rate limit — try again shortly.");
 	if (res.status === 401 || res.status === 403) throw new Error("Access denied — this repo may be gated or private. Add your Hugging Face token.");
 	if (res.status === 404) throw new Error("Not found on Hugging Face.");

@@ -14,6 +14,11 @@ import type { HookDef } from "./settings.ts";
 
 const execAsync = promisify(exec);
 
+// Hooks run inline on every tool call, so one that blocks (waits on stdin, polls a service)
+// wedges the whole agent loop. Cap it; a killed PreToolUse hook exits nonzero and so blocks
+// the tool, which is the safe direction.
+const HOOK_TIMEOUT_MS = 30_000;
+
 export type HookEvent = "SessionStart" | "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "Stop";
 
 export interface HookResult {
@@ -40,10 +45,10 @@ export async function runHooks(
 			LLM_TOOL_ARGS: ctx.args ? JSON.stringify(ctx.args) : "",
 		};
 		try {
-			const { stdout } = await execAsync(h.command, { cwd, env, maxBuffer: 4 * 1024 * 1024 });
+			const { stdout } = await execAsync(h.command, { cwd, env, maxBuffer: 4 * 1024 * 1024, timeout: HOOK_TIMEOUT_MS, killSignal: "SIGKILL" });
 			if (stdout.trim()) output += stdout.trim() + "\n";
 		} catch (e: any) {
-			// nonzero exit
+			// nonzero exit (a timeout kill lands here too)
 			if (event === "PreToolUse") return { block: true, output: (output + (e.stdout ?? "") + (e.stderr ?? "")).trim() };
 			if (e.stdout?.trim()) output += e.stdout.trim() + "\n";
 		}
