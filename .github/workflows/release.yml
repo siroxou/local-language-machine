@@ -1,8 +1,15 @@
 name: Release
 
-# Builds the desktop app for each platform and attaches the artifacts to the
-# release for the pushed tag. Each runner installs its own matching node-llama-cpp
-# prebuilt binaries, which is why this cannot be done from a single machine.
+# Builds the desktop app for each platform and attaches the installers to the release
+# for the pushed tag. Each runner installs its own matching node-llama-cpp prebuilt
+# binaries, which is why this cannot be done from a single machine.
+#
+# The runners do NOT let electron-builder manage the release. Under `--publish always`
+# each one independently creates-or-replaces the release for the tag, so whichever
+# finishes second wipes assets the first had already uploaded — every job reports
+# success while the release ends up missing installers. Instead the release is opened
+# once as a draft, each runner uploads its own artifacts into it, and a final job
+# publishes it only after all three platforms have landed.
 
 on:
   push:
@@ -13,8 +20,26 @@ on:
 permissions:
   contents: write
 
+env:
+  TAG: ${{ github.ref_name }}
+
 jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open a draft release for this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — reusing it."
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+          fi
+
   build:
+    needs: draft
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +65,36 @@ jobs:
 
       - run: npm run build
 
-      - name: Package and publish
-        run: npx electron-builder ${{ matrix.flag }} --publish always
+      - name: Package
+        run: npx electron-builder ${{ matrix.flag }} --publish never
+
+      - name: Upload installers to the release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(release/*.dmg release/*.exe release/*.AppImage release/*.blockmap release/latest*.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::electron-builder produced no installers for ${{ matrix.flag }}"
+            ls -la release || true
+            exit 1
+          fi
+          printf 'uploading: %s\n' "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify every platform landed, then publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          names=$(gh release view "$TAG" --json assets -q '.assets[].name')
+          echo "$names"
+          for ext in dmg exe AppImage; do
+            echo "$names" | grep -qi "\.$ext$" || { echo "::error::the release has no .$ext installer"; exit 1; }
+          done
+          gh release edit "$TAG" --draft=false --latest
