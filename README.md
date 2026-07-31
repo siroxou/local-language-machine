@@ -157,11 +157,26 @@ into `~/.local-language-machine` and caches it there; nothing else touches the n
 
 The app checks for a newer release on launch and points you at the download page when one exists.
 
-> **macOS first launch:** the build is not signed with a paid Apple developer certificate, so
-> Gatekeeper will refuse the first open. Right‑click the app → **Open** → **Open**. Once only.
+### macOS: “Apple could not verify this app is free of malware”
 
-> Move the app out of `~/Downloads` before running it. macOS otherwise launches downloaded apps
-> from a read‑only temporary mount.
+The build is ad‑hoc signed but not notarized — notarization needs a paid Apple Developer
+account. macOS therefore quarantines it on download and Gatekeeper refuses the first launch.
+Drag the app to **Applications** first, then clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Local Language Machine.app"
+```
+
+It opens normally from then on. Prefer not to use the terminal? Double‑click the app, dismiss
+the warning, then go to **System Settings → Privacy & Security**, scroll to **Security**, and
+press **Open Anyway** next to the app's name.
+
+> Right‑click → **Open** no longer works for this: Apple removed that bypass in macOS 15
+> (Sequoia). Older write‑ups still recommend it, but on macOS 15 and later it just replays the
+> same refusal.
+
+**Windows** shows a SmartScreen notice instead — **More info → Run anyway**. **Linux** needs
+`chmod +x` on the AppImage.
 
 ---
 
