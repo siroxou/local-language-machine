@@ -24,6 +24,20 @@ export class Checkpoints {
 		return this.#stack.length;
 	}
 
+	/** Distinct files touched this session, oldest first. Powers the Changes panel. */
+	get changed(): string[] {
+		return [...new Set(this.#stack.map((s) => s.path))];
+	}
+
+	/**
+	 * The contents `rel` had before this session touched it — i.e. the *earliest* snapshot, not the
+	 * newest. A file edited three times has three entries; diffing against the last one would show
+	 * only the final edit rather than the session's whole effect. Null means it didn't exist.
+	 */
+	beforeOf(rel: string): string | null {
+		return this.#stack.find((s) => s.path === rel)?.before ?? null;
+	}
+
 	/** Record the current contents of `rel` before it is modified. */
 	async snapshot(root: string, rel: string): Promise<void> {
 		const abs = resolveInRoot(root, rel);
