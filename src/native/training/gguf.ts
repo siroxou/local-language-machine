@@ -51,6 +51,9 @@ export function startConvert(runId: string, emit: Emit): Promise<void> {
 		if (!meta) throw new Error(`Unknown run: ${runId}`);
 		if (!meta.baseModel) throw new Error("This run has no recorded base model — retrain to convert.");
 		if (!existsSync(meta.adapterDir)) throw new Error("Adapter not found for this run.");
+		// Fusing goes through mlx_lm.fuse, and ensureVenv only installs mlx-lm for the mlx backend
+		// (venv.ts) — on an Unsloth run this would die as a bare ModuleNotFoundError.
+		if (meta.backend !== "mlx") throw new Error("GGUF conversion currently requires an MLX (Apple Silicon) run; this run used Unsloth.");
 
 		const python = await ensureVenv(meta.backend, (l) => log(emit, l));
 		const fusedDir = join(runDirOf(runId), "fused");

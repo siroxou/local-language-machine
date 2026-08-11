@@ -30,8 +30,8 @@ you open, and every prompt you send is shipped to a remote server. **Local Langu
 that around:**
 
 - 🔒 **Private by construction.** Inference runs in‑process. Your files, prompts, and generated
-  code stay on disk — they are never sent anywhere. The network switch is **off** by default and
-  gates the assistant's reach: web tools, remote MCP servers, and skill imports from a URL. The one
+  code stay on disk — they are never sent anywhere. The network switch is **off** by default, sits
+  in the status bar, and gates the assistant's reach: web tools and skill imports from a URL. The one
   component that uses the network regardless is the model manager, and only when you ask it to
   search for or download a GGUF — after which the model is cached locally and nothing else phones home.
 - ⚡ **Session‑based inference.** A live context + KV cache means each turn only evaluates new
@@ -58,7 +58,7 @@ that around:**
 | 🤗 **Model manager** | Search the Hugging Face Hub or paste an `owner/repo` id; resumable download + SHA‑256 verify. |
 | 🎓 **On‑device fine‑tuning** | Built‑in LoRA training — MLX on Apple Silicon, Unsloth on NVIDIA — with live loss streamed to the UI, plus a runs history. |
 | 📊 **Benchmark & evaluate** | Measure base vs fine‑tuned on real held‑out data — perplexity, generation speed, and side‑by‑side samples — rendered as charts. Convert a run to GGUF and load it right back into the Assistant. |
-| 🎨 **Liquid‑glass UI** | A themeable interface with color presets, custom backgrounds, effect tuning, and a performance mode. |
+| 🎨 **Themeable UI** | A flat olive design system with light and dark presets, per‑colour overrides, and custom code‑driven backgrounds. |
 | 💻 **Integrated dock** | A built‑in terminal and a live browser panel for previewing what you build. |
 | 🔀 **Sessions** | Resume, fork, and clear conversations — history is persisted per project. |
 
@@ -277,8 +277,8 @@ pass through the permission gate before they run.
   safe, read‑only toolset by default.
 - **Hooks** — shell commands fired on `SessionStart`, `UserPromptSubmit`, `PreToolUse`,
   `PostToolUse`, and `Stop`.
-- **MCP** — point the app at Model Context Protocol servers to add tools; a failing server never
-  blocks the session.
+- **MCP** — point the app at local (stdio) Model Context Protocol servers to add tools; a failing
+  server never blocks the session. Remote SSE/HTTP servers are not supported yet.
 
 ---
 
@@ -406,7 +406,7 @@ bench/
 
 - [ ] VS Code webview front‑end (the core already speaks a postMessage‑style protocol)
 - [ ] Nested project‑memory discovery
-- [ ] Per‑folder MCP configuration
+- [ ] Remote (SSE/HTTP) MCP transport — local stdio servers work today
 - [ ] HTTP / prompt / subagent hook types
 - [ ] Mutating subagents with per‑agent model overrides
 - [ ] Full PTY terminal (interactive `vim` / `top`)

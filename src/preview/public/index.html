@@ -18,23 +18,32 @@
 		--ui: Merriweather, "Source Serif 4", ui-serif, Georgia, "Times New Roman", serif;
 		--mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 		--fz: 13px; --lh: 1.6;
-		/* ink — warm cream on olive */
-		--tx: #f0ebdd; --tx-dim: #b5ad9b; --tx-faint: #8a8271;
-		--ac: #8a9f7b; --ac-soft: #8a9f7b33; --ac-fg: #26251b; /* sage primary — dark ink on top */
-		--warn: #a18f5c; /* in-progress states */
+		/* ————— Daylight: the default. Warm paper, not a cold grey — the product's family is earthy
+		   and it should stay recognisable between the two. Every dark preset (Sagebrush and friends)
+		   is one click away in Customize; applyTheme() derives the surfaces and inks below from
+		   whichever base it's given, so both directions stay self-consistent. ————— */
+		/* ink — warm charcoal on paper. These literals are exactly what derived() computes for the
+		   Daylight base, so re-picking Daylight in Customize is a no-op rather than a small shift. */
+		--tx: #2e2b22; --tx-dim: #67645b; --tx-faint: #918e84;
+		--ac: #5f7a4e; --ac-soft: #5f7a4e2e; --ac-fg: #fbf9f3; /* sage primary — light ink on top */
+		--warn: #694b1b; /* in-progress states */
+		--ok: #3d5331; --err: #875b51; /* success / failure text on a panel */
+		--sel: #5f7a4e40; /* editor selection */
 		/* Logo ramp. These are the fallbacks for first paint; applyLogoTheme() overwrites them
-		   with values derived from the live --ac / --bg / --warn, so the mark follows the theme. */
-		--logo-hi: #a4b592; --logo-mid: #8a9f7b; --logo-lo: #6d8360;
-		--logo-ink: #211e18; --logo-line: #a9bd96; --logo-bar: #a18f5c;
+		   with values derived from the live --ac / --s-nu, so the mark follows the theme. */
+		--logo-hi: #82996f; --logo-mid: #5f7a4e; --logo-lo: #4a5f3d;
+		--logo-ink: #1b2216; --logo-line: #86a077; --logo-bar: #75521a;
 		/* surfaces — flat, opaque, one step apart. No blur, no glow, no gradients. */
-		--bg: #3a3529;      /* page */
-		--card: #413c33;    /* panels, dialogs, menus */
-		--card-2: #4a4439;  /* inputs, hover fills */
-		--card-3: #524b3f;  /* pressed / selected fills */
-		--brd: #5a5345; --brd-soft: #4e4839;
-		/* syntax — sage / tan / clay */
-		--s-cm: #7e7768; --s-kw: #a18f5c; --s-st: #9db18c; --s-nu: #c6ad72;
-		--s-fn: #8a9f7b; --s-pn: #b5ad9b; --s-id: #ede8da;
+		--bg: #eceadf;      /* page */
+		--card: #f8f6ef;    /* panels, dialogs, menus */
+		--card-2: #eae8e1;  /* inputs, hover fills */
+		--card-3: #dcdad2;  /* pressed / selected fills */
+		--brd: #c8c5be; --brd-soft: #dad8d0;
+		/* syntax — sage / ochre / clay, darkened for a light surface */
+		--s-cm: #8b8577; --s-kw: #8a6d20; --s-st: #4a6b3d; --s-nu: #8a5f1e;
+		--s-fn: #4a6b56; --s-pn: #636057; --s-id: #2e2b22;
+		/* Scrim over the model-picker animation; recomputed per theme (see derived()). */
+		--mp-scrim: linear-gradient(96deg, #f8f6effc 0%, #f8f6eff7 46%, #f8f6efea 100%);
 	}
 	* { box-sizing: border-box; }
 	html, body { height: 100%; margin: 0; overflow: hidden; }
@@ -89,7 +98,65 @@
 	.seg button.on { color: var(--tx); background: var(--card-3); }
 	.badge { font-size: 11.5px; color: var(--tx-dim); padding: 5px 11px; border-radius: 999px;
 		background: var(--card-2); border: 1px solid var(--brd-soft); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-	.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #8a9f7b; }
+	.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
+	/* the network badge is a real button — keep the pill look, add the affordance */
+	button.badge { font-family: inherit; cursor: pointer; }
+	button.badge:hover { border-color: var(--brd); color: var(--tx); }
+
+	/* ——— title bar, three zones ———
+	   Left = where you are (sidebar toggle + workspace). Centre = what you're doing (session).
+	   Right = agent state + everything else behind one menu. Controls that changed *layout* and
+	   controls that opened *destinations* used to sit side by side looking identical; they don't now. */
+	.tb-icon { font: inherit; font-size: 13px; line-height: 1; color: var(--tx-dim); background: transparent;
+		border: 1px solid transparent; border-radius: var(--r-sm); width: 30px; height: 30px; flex: 0 0 auto;
+		cursor: pointer; transition: .18s cubic-bezier(.2,.8,.2,1); }
+	.tb-icon:hover { color: var(--tx); background: var(--card-2); }
+	.tb-icon:active { transform: scale(.92); }
+	.tb-icon.on { color: var(--tx); background: var(--card-2); border-color: var(--brd-soft); }
+	.tb-icon.off { opacity: .5; }
+	.tb-ws { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 260px;
+		font: inherit; font-size: 13px; font-weight: 700; color: var(--tx); background: transparent;
+		border: 1px solid transparent; border-radius: var(--r-sm); padding: 5px 9px; cursor: pointer; transition: .18s; }
+	.tb-ws:hover { background: var(--card-2); border-color: var(--brd-soft); }
+	.tb-ws .logo { width: 18px; height: 18px; }
+	.tb-ws .nm, .tb-session .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.caret { color: var(--tx-faint); font-size: 10px; flex: 0 0 auto; }
+	/* The session name is the one thing that tells you which conversation you're in — status.sessionId
+	   was computed and shipped since forever and never rendered anywhere. */
+	.tb-session { min-width: 0; max-width: 340px; font: inherit; font-size: 12.5px; color: var(--tx-dim);
+		background: transparent; border: 1px solid transparent; border-radius: var(--r-sm); padding: 5px 11px;
+		cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: .18s; }
+	.tb-session:hover { color: var(--tx); background: var(--card-2); border-color: var(--brd-soft); }
+	.tb-mode { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; color: var(--tx);
+		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: 999px; padding: 6px 12px;
+		cursor: pointer; white-space: nowrap; transition: .2s cubic-bezier(.2,.8,.2,1); }
+	.tb-mode:hover { border-color: var(--brd); }
+	.tb-mode:active { transform: scale(.97); }
+	.tb-mode .gem { color: var(--ac); font-size: 10px; }
+	.tb-mode[data-mode="plan"] .gem { color: var(--warn); }
+	.tb-mode[data-mode="auto"] .gem { color: var(--err); }
+	/* Checkpoint count used to live inside a title="" tooltip, which is to say nowhere. */
+	.tb-chip { font: inherit; font-size: 11.5px; color: var(--tx-dim); background: transparent;
+		border: 1px solid var(--brd-soft); border-radius: 999px; padding: 5px 10px; cursor: pointer;
+		white-space: nowrap; font-variant-numeric: tabular-nums; transition: .18s; }
+	.tb-chip:hover { color: var(--tx); background: var(--card-2); }
+	.tb-chip[hidden] { display: none; }
+
+	/* ——— dropdown menus (mode + overflow) ——— */
+	.menu { position: fixed; z-index: 60; display: none; min-width: 232px; padding: var(--s-half);
+		background: var(--card); border: 1px solid var(--brd); border-radius: var(--radius);
+		box-shadow: 0 10px 34px rgba(0,0,0,.5); }
+	.menu.show { display: block; animation: fade .14s ease; }
+	.menu-item { display: flex; align-items: baseline; gap: var(--s1); width: 100%; text-align: left;
+		font: inherit; font-size: 12.5px; color: var(--tx); background: transparent; border: 0;
+		border-radius: var(--r-sm); padding: 8px 10px; cursor: pointer; transition: .12s; }
+	.menu-item:hover { background: var(--card-2); }
+	.menu-item.on { background: var(--ac-soft); }
+	.menu-item .ic { flex: 0 0 17px; text-align: center; color: var(--tx-dim); }
+	.menu-item .lb { flex: 1 1 auto; min-width: 0; }
+	.menu-item .d { display: block; font-size: 11.5px; color: var(--tx-faint); margin-top: 2px; line-height: 1.4; }
+	.menu-item .k { flex: 0 0 auto; font-size: 11px; color: var(--tx-faint); font-variant-numeric: tabular-nums; }
+	.menu-sep { height: 1px; margin: var(--s-half) 6px; background: var(--brd-soft); }
 
 	/* ——— panels ——— */
 	.files { grid-area: files; overflow: hidden; display: flex; flex-direction: column; transition: opacity .3s; }
@@ -107,6 +174,54 @@
 	.row .ic { width: 15px; text-align: center; flex: 0 0 auto; opacity: .8; font-size: 12px; }
 	.row .nm { overflow: hidden; text-overflow: ellipsis; }
 
+	/* ——— sidebar tabs: Files · Sessions · Changes ———
+	   Search stays a mode of Files (search results are file results), so this is three tabs, not four. */
+	.side-tabs { display: flex; gap: var(--s-half); padding: var(--s1) var(--s1) 0; flex: 0 0 auto; }
+	.side-tab { flex: 1 1 0; font: inherit; font-size: 12px; color: var(--tx-dim); border: 0; background: transparent;
+		padding: 7px 6px; border-radius: var(--r-xs); cursor: pointer; transition: .18s cubic-bezier(.2,.8,.2,1);
+		display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+	.side-tab:hover { color: var(--tx); background: var(--card-2); }
+	.side-tab[aria-selected="true"] { color: var(--tx); background: var(--card-3); }
+	.side-tab .n { font-size: 10.5px; color: var(--tx-faint); font-variant-numeric: tabular-nums; }
+	.side-tab[aria-selected="true"] .n { color: var(--ac); }
+	.side-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+	.side-view[hidden] { display: none; }
+	.side-filter { flex: 0 0 auto; padding: var(--s1) var(--s2) var(--s-half); }
+	.side-filter input { width: 100%; font: inherit; font-size: 12.5px; color: var(--tx); background: var(--card-2);
+		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 7px 10px; outline: none; }
+	.side-filter input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-soft); }
+	.side-list { flex: 1; overflow-y: auto; padding: var(--s-half) var(--s1) var(--s2); }
+	.side-empty { color: var(--tx-faint); font-size: 12px; padding: var(--s2); line-height: 1.55; text-align: center; }
+	.side-group { font-size: 10.5px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase;
+		color: var(--tx-faint); padding: var(--s2) 10px var(--s-half); }
+	.side-group:first-child { padding-top: var(--s-half); }
+
+	/* ——— session rows ——— */
+	.sess { display: block; width: 100%; text-align: left; font: inherit; background: transparent; border: 0;
+		border-radius: var(--r-sm); padding: 8px 10px; cursor: pointer; transition: .14s; }
+	.sess:hover { background: var(--card-2); }
+	.sess.active { background: var(--ac-soft); }
+	.sess .t { font-size: 12.5px; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.sess.active .t::after { content: " ·  now"; color: var(--ac); font-size: 11px; }
+	.sess .m { font-size: 11px; color: var(--tx-faint); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+	/* ——— changes rows ——— */
+	.chg { display: flex; align-items: center; gap: var(--s1); width: 100%; text-align: left; font: inherit;
+		background: transparent; border: 0; border-radius: var(--r-sm); padding: 7px 10px; cursor: pointer; transition: .14s; }
+	.chg:hover { background: var(--card-2); }
+	.chg.active { background: var(--ac-soft); }
+	.chg .p { flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--tx);
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.chg .p .d { color: var(--tx-faint); }
+	.chg .st { flex: 0 0 auto; font-size: 11px; font-variant-numeric: tabular-nums; }
+	.chg .st .a { color: var(--ok); }
+	.chg .st .r { color: var(--err); }
+	.side-foot { flex: 0 0 auto; padding: var(--s1) var(--s2) var(--s2); }
+	.side-foot button { width: 100%; font: inherit; font-size: 12px; color: var(--tx-dim); background: var(--card-2);
+		border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 7px; cursor: pointer; transition: .16s; }
+	.side-foot button:hover { color: var(--tx); border-color: var(--brd); }
+	.side-foot button:disabled { opacity: .45; cursor: default; }
+
 	/* ——— editor ——— */
 	.editor { grid-area: editor; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
 	.tabs { display: flex; gap: var(--s-half); padding: var(--s1) var(--s1) 0; overflow-x: auto; scrollbar-width: none; flex: 0 0 auto; }
@@ -120,6 +235,7 @@
 	.tab .x:hover { background: var(--card-3); opacity: 1; }
 	.tab .dirty { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-dim); }
 	.edit-region { flex: 1; display: grid; grid-template-columns: auto minmax(0,1fr); overflow: hidden; }
+	.edit-region[hidden] { display: none; } /* `display:grid` above beats the [hidden] UA rule */
 	.mono { font-family: var(--mono); font-size: var(--fz); line-height: var(--lh); tab-size: 2; -moz-tab-size: 2; }
 	.gutter { overflow: hidden; padding: var(--s2) var(--s1) var(--s2) var(--s2); text-align: right;
 		color: var(--tx-faint); user-select: none; white-space: pre; }
@@ -130,14 +246,60 @@
 	}
 	.hl { pointer-events: none; overflow: hidden; color: var(--s-id); }
 	textarea#code { color: transparent; caret-color: var(--ac); resize: none; }
-	textarea#code::selection { background: #8a9f7b55; }
+	textarea#code::selection { background: var(--sel); }
 	.hl .cm { color: var(--s-cm); font-style: italic; }
 	.hl .kw { color: var(--s-kw); }
 	.hl .st { color: var(--s-st); }
 	.hl .nu { color: var(--s-nu); }
 	.hl .fn { color: var(--s-fn); }
 	.hl .pn { color: var(--s-pn); }
-	.welcome { display: grid; place-items: center; height: 100%; text-align: center; color: var(--tx-faint); }
+	/* ——— welcome screen — what fills the editor pane when no file is open ——— */
+	.welcome { flex: 1; min-height: 0; overflow-y: auto; display: grid; place-items: center; padding: var(--s3); }
+	.welcome[hidden] { display: none; }
+	.wel { width: 100%; max-width: 780px; }
+	.wel h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.4px; }
+	.wel .tag { margin: 4px 0 var(--s3); font-size: 14px; color: var(--tx-dim); }
+	.wel .mark { display: flex; align-items: center; gap: 13px; }
+	.wel .mark .logo { width: 42px; height: 42px; }
+	.wel-cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: var(--s3); }
+	@media (max-width: 900px) { .wel-cols { grid-template-columns: minmax(0,1fr); } }
+	.wel h2 { margin: 0 0 var(--s1); font-size: 13px; font-weight: 600; letter-spacing: .5px;
+		text-transform: uppercase; color: var(--tx-faint); }
+	.wel h2:not(:first-child) { margin-top: var(--s3); }
+	.wel-a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit;
+		font-size: 13.5px; color: var(--ac); background: transparent; border: 0; border-radius: var(--r-sm);
+		padding: 7px 9px; cursor: pointer; transition: .14s; }
+	.wel-a:hover { background: var(--card-2); }
+	.wel-a .ic { flex: 0 0 18px; text-align: center; color: var(--tx-faint); font-size: 13px; }
+	.wel-a .k { margin-left: auto; font-size: 11px; color: var(--tx-faint); }
+	.wel-r { display: flex; align-items: baseline; gap: 9px; width: 100%; text-align: left; font: inherit;
+		background: transparent; border: 0; border-radius: var(--r-sm); padding: 6px 9px; cursor: pointer; transition: .14s; }
+	.wel-r:hover { background: var(--card-2); }
+	.wel-r .nm { font-size: 13.5px; color: var(--ac); flex: 0 0 auto; }
+	.wel-r .pt { font-size: 11.5px; color: var(--tx-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.wel-w { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; font: inherit;
+		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm);
+		padding: 11px 13px; margin-bottom: var(--s1); cursor: pointer; transition: .16s; }
+	.wel-w:hover { border-color: var(--ac); }
+	.wel-w .ic { flex: 0 0 20px; font-size: 15px; text-align: center; }
+	.wel-w b { display: block; font-size: 13px; color: var(--tx); font-weight: 600; }
+	.wel-w .d { display: block; font-size: 12px; color: var(--tx-dim); margin-top: 2px; line-height: 1.45; }
+	.wel-empty { font-size: 12.5px; color: var(--tx-faint); padding: 6px 9px; }
+
+	/* ——— diff view — swaps in for .edit-region, same pattern as #tree ↔ #searchView ——— */
+	.diff-view { flex: 1; overflow: auto; padding: var(--s2) 0; }
+	.diff-view[hidden] { display: none; }
+	.diff-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--s2);
+		padding: 0 var(--s2) var(--s2); font-size: 12px; color: var(--tx-dim); background: var(--card); }
+	.diff-head .fp { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx); }
+	.diff-head .a { color: var(--ok); } .diff-head .r { color: var(--err); }
+	.dl { display: flex; white-space: pre; }
+	.dl .ln { flex: 0 0 76px; padding: 0 var(--s1); text-align: right; color: var(--tx-faint); user-select: none; }
+	.dl .tx { flex: 1 1 auto; padding-right: var(--s2); }
+	.dl.add { background: color-mix(in srgb, var(--ok) 14%, transparent); } .dl.add .tx { color: var(--ok); }
+	.dl.del { background: color-mix(in srgb, var(--err) 14%, transparent); } .dl.del .tx { color: var(--err); }
+	.dl.skip { color: var(--tx-faint); background: var(--card-2); font-style: italic; padding: 2px 0; }
+	.dl.skip .tx { padding-left: var(--s1); }
 
 	/* ——— bottom dock: terminal + browser ——— */
 	.editor .dock { display: none; }
@@ -153,12 +315,12 @@
 	.dock-body > div { position: absolute; inset: 0; display: flex; flex-direction: column; }
 	.dock-body > [hidden] { display: none; }
 	/* terminal */
-	.term-out { flex: 1; overflow-y: auto; padding: var(--s1) var(--s2); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #ddd6c6; }
-	.term-out .p { color: #9db18c; }
+	.term-out { flex: 1; overflow-y: auto; padding: var(--s1) var(--s2); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--tx); }
+	.term-out .p { color: var(--ok); }
 	.term-out .cmd { color: var(--tx); }
-	.term-out .err { color: #b5766a; }
+	.term-out .err { color: var(--err); }
 	.term-line { display: flex; align-items: center; gap: 8px; padding: var(--s-half) var(--s2) var(--s1); flex: 0 0 auto; }
-	.term-prompt { color: #9db18c; font-size: 12.5px; flex: 0 0 auto; white-space: nowrap; }
+	.term-prompt { color: var(--ok); font-size: 12.5px; flex: 0 0 auto; white-space: nowrap; }
 	#termInput { flex: 1; background: transparent; border: 0; outline: none; color: var(--tx); font-size: 12.5px; caret-color: var(--ac); }
 	/* browser */
 	.browser-bar { display: flex; align-items: center; gap: 6px; padding: var(--s1); flex: 0 0 auto; }
@@ -179,13 +341,13 @@
 	.mp-trigger .caret { color: var(--tx-faint); font-size: 10px; flex: 0 0 auto; }
 
 	.mp-pop { position: fixed; z-index: 60; display: none; overflow: hidden;
-		border: 1px solid var(--brd); border-radius: var(--radius); background: #26231a;
+		border: 1px solid var(--brd); border-radius: var(--radius); background: var(--card);
 		box-shadow: 0 10px 34px rgba(0,0,0,.5); }
 	.mp-pop.show { display: block; }
 	#modelFx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 	/* Scrim over the animation — the rows have to stay readable while it moves underneath. */
 	.mp-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 286px minmax(0,1fr);
-		background: linear-gradient(96deg, rgba(38,35,26,.96) 0%, rgba(38,35,26,.90) 46%, rgba(38,35,26,.78) 100%); }
+		background: var(--mp-scrim); }
 	.mp-list-col { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--brd); }
 	.mp-search { flex: 0 0 auto; padding: var(--s1); border-bottom: 1px solid var(--brd); }
 	.mp-search input { width: 100%; font: inherit; font-size: 12.5px; color: var(--tx); background: var(--card-2);
@@ -245,7 +407,7 @@
 	.tool { border: 1px solid rgba(138,159,123,.34); background: rgba(138,159,123,.08); border-radius: var(--r-sm);
 		font-family: var(--mono); font-size: 11.5px; overflow: hidden; }
 	.tool .head { display: flex; align-items: center; gap: 7px; padding: 7px 10px; cursor: pointer; }
-	.tool .head .name { color: #9db18c; font-weight: 600; }
+	.tool .head .name { color: var(--ok); font-weight: 600; }
 	.tool .head .st { margin-left: auto; color: var(--tx-faint); font-size: 10.5px; }
 	.tool pre { margin: 0; padding: 8px 10px; border-top: 1px solid rgba(138,159,123,.24); white-space: pre-wrap;
 		word-break: break-word; color: var(--tx-dim); max-height: 200px; overflow: auto; }
@@ -276,6 +438,13 @@
 	.st-metrics { flex: 0 0 auto; margin-left: auto; display: flex; align-items: center; gap: var(--s2); }
 	.st-metric { white-space: nowrap; font-variant-numeric: tabular-nums; }
 	#stModel { color: var(--tx); }
+	/* Context as a number alone gives no sense of how close to full you are. */
+	.st-ctx { display: inline-flex; flex-direction: column; gap: 2px; }
+	.st-ctx .bar { height: 3px; border-radius: 2px; background: var(--brd-soft); overflow: hidden; }
+	.st-ctx .bar i { display: block; height: 100%; width: 0; background: var(--ac); transition: width .3s, background .3s; }
+	.st-ctx.hot .bar i { background: var(--warn); }
+	#stCp { width: auto; padding: 0 7px; height: 20px; cursor: pointer; }
+	#stCp[hidden] { display: none; }
 	.st-tune { font-size: 13px; line-height: 1; color: var(--tx-dim); background: transparent; border: 0; cursor: pointer;
 		width: 22px; height: 22px; border-radius: var(--r-xs); transition: .15s; }
 	.st-tune:hover { color: var(--tx); background: var(--card-2); }
@@ -301,8 +470,8 @@
 	.onb-model { text-align: center; display: flex; flex-direction: column; gap: var(--s2); align-items: center; }
 	.onb-model .big { font-size: 13px; color: var(--tx-dim); max-width: 410px; line-height: 1.5; }
 	.onb-cta { font: inherit; font-weight: 600; font-size: 13px; color: var(--ac-fg); background: var(--ac); border: 0; border-radius: var(--r-md); padding: 10px 20px; cursor: pointer; transition: .15s; }
-	.onb-cta:hover { background: #96aa87; }
-	.onb-ready { color: #9db18c; font-weight: 600; font-size: 14px; }
+	.onb-cta:hover { filter: brightness(1.1); }
+	.onb-ready { color: var(--ok); font-weight: 600; font-size: 14px; }
 	.onb-foot { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 	.onb-dots { display: flex; gap: 6px; margin: 0 auto; }
 	.onb-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--brd); transition: .2s; }
@@ -393,7 +562,7 @@
 	.train-row input { font: inherit; font-size: 12px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 7px 10px; outline: none; width: 100%; }
 	.train-row input:focus { border-color: var(--ac); }
 	.train-loss { color: var(--tx); font-variant-numeric: tabular-nums; }
-	.train-log { height: 340px; overflow-y: auto; margin-top: var(--s1); padding: var(--s1) var(--s2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: #ddd6c6; background: rgba(0,0,0,.28); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); }
+	.train-log { height: 340px; overflow-y: auto; margin-top: var(--s1); padding: var(--s1) var(--s2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); }
 	/* ——— runs history + evaluation ——— */
 	#trainRuns { display: flex; flex-direction: column; gap: 6px; }
 	.run-card { display: flex; align-items: center; gap: var(--s2); padding: 10px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); }
@@ -401,9 +570,9 @@
 	.run-card .rid { font-family: var(--mono); font-size: 11.5px; color: var(--tx); word-break: break-all; }
 	.run-card .rmeta { font-size: 11px; color: var(--tx-dim); margin-top: 2px; }
 	.run-st { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--brd-soft); flex: 0 0 auto; }
-	.run-st.done { color: #9db18c; border-color: rgba(138,159,123,.4); }
+	.run-st.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
 	.run-st.running { color: var(--warn); }
-	.run-st.error { color: #b5766a; border-color: rgba(181,118,106,.4); }
+	.run-st.error { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, transparent); }
 	.run-act { font: inherit; font-size: 11.5px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-xs); padding: 5px 10px; cursor: pointer; transition: .15s; flex: 0 0 auto; }
 	.run-act:hover { border-color: var(--ac); color: var(--tx); }
 	.eval-chart { margin: var(--s2) 0; }
@@ -415,8 +584,8 @@
 	.eval-samples td { color: var(--tx-dim); white-space: pre-wrap; word-break: break-word; }
 	.eval-empty { color: var(--tx-faint); font-size: 12px; padding: var(--s2) 0; }
 	.grade-correct, .grade-wrong, .grade-abstain, .grade-ambiguous { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; vertical-align: middle; }
-	.grade-correct { background: rgba(138,159,123,.20); color: #9db18c; }
-	.grade-wrong { background: rgba(181,118,106,.20); color: #b5766a; }
+	.grade-correct { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+	.grade-wrong { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
 	.grade-abstain { background: rgba(180,172,155,.16); color: var(--tx-faint); }
 	.grade-ambiguous { background: rgba(161,143,92,.22); color: #c6ad72; }
 	.tune-quant { color: var(--tx-faint); }
@@ -506,7 +675,7 @@
 	.ctx.show { display: block; }
 	.ctx button { display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; color: var(--tx); background: transparent; border: 0; padding: 7px 11px; border-radius: var(--r-xs); cursor: pointer; }
 	.ctx button:hover { background: var(--card-2); }
-	.ctx button.danger:hover { background: rgba(181,118,106,.2); color: #c98b7e; }
+	.ctx button.danger:hover { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
 	.ctx .div { height: 1px; background: var(--brd-soft); margin: 4px 6px; }
 
 	/* ——— search view (left panel) ——— */
@@ -530,8 +699,10 @@
 	#paletteInput { width: 100%; font: inherit; font-size: 14px; color: var(--tx); background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm); padding: 11px 13px; outline: none; }
 	#paletteInput:focus { border-color: var(--ac); }
 	#paletteList { max-height: 320px; overflow-y: auto; margin-top: 6px; }
-	.pal-item { padding: 8px 11px; border-radius: var(--r-xs); font-size: 13px; color: var(--tx-dim); cursor: pointer; }
+	.pal-item { display: flex; align-items: center; gap: var(--s2); padding: 8px 11px; border-radius: var(--r-xs); font-size: 13px; color: var(--tx-dim); cursor: pointer; }
 	.pal-item.sel, .pal-item:hover { background: var(--ac-soft); color: var(--tx); }
+	.pal-item .lb { flex: 1 1 auto; min-width: 0; }
+	.pal-item .k { flex: 0 0 auto; font-size: 11px; color: var(--tx-faint); }
 
 	/* ——— find-in-file bar ——— */
 	.findbar { position: absolute; top: 8px; right: 20px; z-index: 15; display: none; gap: 4px; align-items: center; padding: 6px; border-radius: var(--r-sm); background: var(--card); border: 1px solid var(--brd); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
@@ -554,6 +725,10 @@
 		.app:not(.show-agent) { --col-agent: 0; }
 		.app:not(.show-agent) .agent { opacity: 0; pointer-events: none; }
 	}
+	/* Moving the network badge down here made the metrics cluster wider than a narrow window.
+	   Drop the two most transient readings first — both are back the moment there's room. */
+	@media (max-width: 980px) { .status #stTps, .status #stGpu { display: none; } }
+	@media (max-width: 820px) { .status #stModel { display: none; } .title .tb-session { max-width: 180px; } }
 </style>
 </head>
 <body>
@@ -580,25 +755,27 @@
 
 	<div class="app" id="app">
 		<div class="title">
-			<div class="brand"><svg class="logo"><use href="#logo"/></svg> Local Language Machine</div>
+			<button id="tSide" class="tb-icon on" aria-label="Toggle sidebar" aria-pressed="true" title="Sidebar — ⌘B">▤</button>
+			<button id="wsBtn" class="tb-ws" aria-label="Workspace — switch folder" title="Switch workspace folder">
+				<svg class="logo" aria-hidden="true"><use href="#logo"/></svg><span class="nm" id="wsName">Local Language Machine</span><span class="caret" aria-hidden="true">▾</span>
+			</button>
 			<div class="grow"></div>
-			<div class="seg">
-				<button id="tFiles" class="on">Explorer</button>
-				<button id="tAgent" class="on">Assistant</button>
-				<button id="tTerm">Terminal</button>
-				<button id="tBrowser">Browser</button>
-			</div>
-			<button id="soundBtn" class="icon-btn" title="Sound on">🔊</button>
-			<button id="modeBadge" class="cust-btn" title="Permission mode — Shift+Tab to cycle">manual</button>
-				<button id="sessionsBtn" class="icon-btn" title="Sessions (resume / fork)">⧉</button>
-				<button id="skillsBtn" class="icon-btn" title="Skills & import">✦</button>
-				<button id="trainBtn" class="icon-btn" title="Model training — LoRA fine-tune">🎓</button>
-				<button id="helpBtn" class="icon-btn" title="Getting started">?</button>
-				<button id="customizeBtn" class="cust-btn">✧ Customize</button>
-			<span class="badge"><span class="dot" id="netDot"></span> <span id="netLabel">Offline · no external services</span></span>
+			<button id="sessionTitle" class="tb-session" aria-label="Current session — browse sessions" title="Current session — click to browse sessions"><span class="nm">New session</span></button>
+			<div class="grow"></div>
+			<button id="cpChip" class="tb-chip" hidden aria-label="Files changed this session">⟲ <span id="cpCount">0</span></button>
+			<button id="modeBadge" class="tb-mode" data-mode="manual" aria-haspopup="menu" aria-expanded="false" aria-label="Permission mode" title="Permission mode — Shift+Tab to cycle"><span class="gem" aria-hidden="true">◈</span><span id="modeName">manual</span><span class="caret" aria-hidden="true">▾</span></button>
+			<button id="moreBtn" class="tb-icon" aria-label="More — sessions, skills, training, theme" aria-haspopup="menu" aria-expanded="false" title="More">⋯</button>
+			<button id="tAgent" class="tb-icon on" aria-label="Toggle assistant" aria-pressed="true" title="Assistant — ⌘⇧A">▥</button>
 		</div>
 
 		<section class="files glass">
+			<div class="side-tabs" role="tablist" aria-label="Sidebar">
+				<button class="side-tab" id="sTabFiles" role="tab" aria-selected="true" aria-controls="viewFiles" title="Files — ⌘B">Files</button>
+				<button class="side-tab" id="sTabSessions" role="tab" aria-selected="false" aria-controls="viewSessions" title="Sessions — ⌘⇧S">Sessions</button>
+				<button class="side-tab" id="sTabChanges" role="tab" aria-selected="false" aria-controls="viewChanges" title="Changes this session — ⌘⇧D">Changes <span class="n" id="sTabChangesN"></span></button>
+			</div>
+
+			<div class="side-view" id="viewFiles" role="tabpanel" aria-labelledby="sTabFiles">
 			<div class="panel-h">
 				<span id="explorerTitle">Explorer</span>
 				<span class="grow"></span>
@@ -621,6 +798,17 @@
 				</div>
 				<div id="searchResults"></div>
 			</div>
+			</div>
+
+			<div class="side-view" id="viewSessions" role="tabpanel" aria-labelledby="sTabSessions" hidden>
+				<div class="side-filter"><input id="sessFilter" placeholder="Filter sessions…" spellcheck="false" autocomplete="off" aria-label="Filter sessions" /></div>
+				<div class="side-list" id="sessList"></div>
+			</div>
+
+			<div class="side-view" id="viewChanges" role="tabpanel" aria-labelledby="sTabChanges" hidden>
+				<div class="side-list" id="chgList"></div>
+				<div class="side-foot"><button id="undoBtn" disabled title="Also: press Esc twice">⟲ Undo last change</button></div>
+			</div>
 		</section>
 
 		<section class="editor glass">
@@ -635,13 +823,43 @@
 				<button id="findClose" title="Close (Esc)">✕</button>
 			</div>
 			<div class="tabs" id="tabs"></div>
-			<div class="edit-region">
+			<div class="welcome" id="welcome">
+				<div class="wel">
+					<div class="mark"><svg class="logo" aria-hidden="true"><use href="#logo"/></svg>
+						<div><h1>Local Language Machine</h1><div class="tag">Editing, offline. Your code never leaves this device.</div></div>
+					</div>
+					<div class="wel-cols">
+						<div>
+							<h2>Start</h2>
+							<button class="wel-a" id="welNewFile"><span class="ic" aria-hidden="true">＋</span>New File…</button>
+							<button class="wel-a" id="welOpen"><span class="ic" aria-hidden="true">📂</span>Open Folder…</button>
+							<button class="wel-a" id="welPalette"><span class="ic" aria-hidden="true">⌘</span>All commands…<span class="k">⌘⇧P</span></button>
+							<button class="wel-a" id="welSearch"><span class="ic" aria-hidden="true">🔍</span>Search across files…<span class="k">⌘⇧F</span></button>
+							<button class="wel-a" id="welTerm"><span class="ic" aria-hidden="true">❯</span>Open Terminal<span class="k">⌘J</span></button>
+							<button class="wel-a" id="welAsk"><span class="ic" aria-hidden="true">✦</span>Ask the assistant</button>
+							<h2>Recent</h2>
+							<div id="welRecent"></div>
+						</div>
+						<div>
+							<h2>Walkthroughs</h2>
+							<button class="wel-w" id="welOnb"><span class="ic" aria-hidden="true">★</span><span><b>Get started</b><span class="d">Pick a model, learn the panes, start building</span></span></button>
+							<button class="wel-w" id="welSessions"><span class="ic" aria-hidden="true">⧉</span><span><b>Pick up where you left off</b><span class="d">Every conversation in this project, searchable</span></span></button>
+							<button class="wel-w" id="welSkills"><span class="ic" aria-hidden="true">✦</span><span><b>Skills &amp; import</b><span class="d">Teach the assistant new commands, offline or from git</span></span></button>
+							<button class="wel-w" id="welTrain"><span class="ic" aria-hidden="true">🎓</span><span><b>Model training</b><span class="d">Fine-tune a LoRA adapter on your own data</span></span></button>
+							<button class="wel-w" id="welTheme"><span class="ic" aria-hidden="true">✧</span><span><b>Customize the look</b><span class="d">Light and dark presets, or pick every colour yourself</span></span></button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="edit-region" id="editRegion" hidden>
 				<div class="gutter mono" id="gutter"></div>
 				<div class="code-wrap">
 					<pre class="hl mono" id="hl"></pre>
 					<textarea id="code" class="mono" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
 				</div>
 			</div>
+			<div class="diff-view mono" id="diffView" hidden></div>
 			<div class="dock" id="dock">
 				<div class="dock-tabs">
 					<button class="dock-tab on" data-panel="terminal">Terminal</button>
@@ -687,11 +905,15 @@
 			<div class="st-metrics">
 				<span id="stPos">Ln 1, Col 1</span>
 				<span class="sep">·</span>
+				<button id="stCp" class="st-metric st-tune" hidden title="Files changed this session — click to review">⟲ <span id="stCpN">0</span></button>
 				<span id="stTps" class="st-metric" title="Generation speed (tokens / second)">— tok/s</span>
-				<span id="stCtx" class="st-metric" title="Context window (tokens)">ctx —</span>
+				<span id="stCtx" class="st-metric st-ctx" title="Context window (tokens)">
+					<span id="stCtxN">ctx —</span><span class="bar"><i id="stCtxFill"></i></span>
+				</span>
 				<span id="stGpu" class="st-metric" title="Compute backend">GPU —</span>
 				<span id="stModel" class="st-metric" title="Model · size · quantization">no model</span>
 				<button id="stTune" class="st-tune" title="Model tuning — temperature, context, sampling…">⚙</button>
+				<button class="badge" id="netChip" aria-pressed="false"><span class="dot" id="netDot"></span> <span id="netLabel">Offline · no external services</span></button>
 			</div>
 		</div>
 	</div>
@@ -794,7 +1016,7 @@
 							<textarea id="tuneSys" rows="3" placeholder="e.g. Always answer concisely and cite file paths." spellcheck="false"></textarea>
 						</div>
 						<div class="fx-groups" id="tuneInfer"></div>
-						<div class="tune-hint">Leave a box empty for the model's own default.</div>
+						<div class="tune-hint">Leave a box empty for the model's own default. Top K, Top P and Min P only take effect when Temperature is above 0 — at Temperature 0 the model always picks its top token, so they have nothing to narrow.</div>
 					</section>
 					<section class="tune-panel" data-ttab="load" hidden>
 						<div class="sub">Baked in when the model loads — press <b>Reload model</b> to apply. <span id="tuneQuant" class="tune-quant"></span></div>
@@ -875,15 +1097,6 @@
 		</div>
 	</div>
 
-<div class="overlay" id="sessionsOverlay">
-		<div class="dialog glass hf-dialog">
-			<h3>⧉ Sessions</h3>
-			<div class="sub">Resume a past conversation in this project, or fork the current one with <span style="font-family:var(--mono)">/fork</span>.</div>
-			<div class="hf-body" id="sessionsBody"></div>
-			<div class="row2"><button class="approve" id="sessionsClose">Done</button></div>
-		</div>
-	</div>
-
 	<div class="overlay" id="skillsOverlay">
 		<div class="dialog glass hf-dialog">
 			<h3>✦ Skills</h3>
@@ -944,6 +1157,8 @@
 	</div>
 
 	<div class="ctx" id="ctxMenu"></div>
+	<div class="menu" id="modeMenu" role="menu" aria-label="Permission mode"></div>
+	<div class="menu" id="moreMenu" role="menu" aria-label="More"></div>
 
 <script>
 // ————— transport (WebSocket now; swap to VS Code postMessage in the webview) —————
@@ -1012,13 +1227,14 @@ function syncScroll() { hl.scrollTop = code.scrollTop; hl.scrollLeft = code.scro
 
 function openFile(path, content) {
 	const existed = files.get(path);
+	closeDiff();
 	files.set(path, { content, dirty: false, lang: langOf(path) });
 	active = path;
 	if (code.value !== content) code.value = content;
 	renderTabs(); renderCode(); updateStatus();
 	code.scrollTop = 0; syncScroll();
 }
-function switchTab(path) { if (!files.has(path)) return; active = path; code.value = files.get(path).content; renderTabs(); renderCode(); updateStatus(); }
+function switchTab(path) { if (!files.has(path)) return; closeDiff(); active = path; code.value = files.get(path).content; renderTabs(); renderCode(); updateStatus(); }
 function closeTab(path) {
 	files.delete(path);
 	if (active === path) { const next = [...files.keys()].pop() || null; active = next; code.value = next ? files.get(next).content : ""; }
@@ -1034,6 +1250,7 @@ function renderTabs() {
 		tab.onclick = (e) => { if (e.target.classList.contains("x")) closeTab(path); else switchTab(path); };
 		tabsEl.appendChild(tab);
 	}
+	syncWelcome(); // open/close/switch all land here, so the three pane states stay in step
 }
 function updateStatus() { $("stPath").textContent = active || "—"; updatePos(); }
 function updatePos() {
@@ -1118,7 +1335,13 @@ function updateTps() {
 }
 const tok = (n) => n >= 1024 ? (n / 1024).toFixed(1).replace(/\.0$/, "") + "K" : String(n | 0);
 let ctxWindow = 0; // context window of the loaded model — the picker reports it alongside size/quant
-function updateCtx(used, size) { ctxWindow = size || 0; $("stCtx").textContent = size ? `ctx ${tok(used || 0)}/${tok(size)}` : "ctx —"; }
+function updateCtx(used, size) {
+	ctxWindow = size || 0;
+	const pct = size ? Math.min(100, ((used || 0) / size) * 100) : 0;
+	$("stCtxN").textContent = size ? `ctx ${tok(used || 0)}/${tok(size)}` : "ctx —";
+	$("stCtxFill").style.width = pct + "%";
+	$("stCtx").classList.toggle("hot", pct >= 80);
+}
 // GPU: backend name (from status) + live utilization % (from the gpu-usage poll, when available)
 let gpuBackend = "—", gpuUsagePct = null;
 function renderGpu() { $("stGpu").textContent = "GPU " + gpuBackend + (gpuUsagePct != null ? " " + gpuUsagePct + "%" : ""); }
@@ -1147,6 +1370,11 @@ const gbLabel = (n) => (n >= 1 ? n + " GB" : Math.round(n * 1000) + " MB");
 function renderModels(list, loadedId, gpu) {
 	hasModel = !!loadedId;
 	loadedModel = loadedId ? list.find((x) => x.id === loadedId) : null;
+	// Pull the loaded model's saved preset as soon as it changes. `tune` is the full payload every
+	// set-tuning sends, and the server stores it whole — so if it is still empty (never opened ⚙)
+	// or holds the *previous* model's values, one temperature preset click wipes the saved system
+	// prompt and Load knobs, or copies them onto the wrong model.
+	if (loadedId && loadedId !== tunedFor) { tunedFor = loadedId; send({ type: "get-tuning" }); }
 	const lm = loadedModel;
 	$("modelPill").textContent = lm ? shortName(lm.label) : "no model";
 	$("stModel").textContent = lm ? `${shortName(lm.label)} · ${gbLabel(lm.sizeGB)}${lm.quant ? " · " + lm.quant : ""}` : "no model";
@@ -1514,11 +1742,11 @@ function maybeOnboard() {
 $("onbNext").onclick = () => onbNav(1);
 $("onbBack").onclick = () => onbNav(-1);
 $("onbSkip").onclick = () => { $("onboardOverlay").classList.remove("show"); };
-$("helpBtn").onclick = () => { onbShown = true; openOnboard(); };
+function openHelp() { onbShown = true; openOnboard(); }
 
 onMsg((m) => {
 	switch (m.type) {
-		case "status": lastModels = m.models || []; renderModels(m.models, m.loaded, m.gpu); updateCtx(m.loaded ? m.contextUsed : 0, m.loaded ? m.contextWindow : 0); updateMode(m.mode); updateNet(m.online); updateCheckpoints(m.checkpoints); currentRoot = m.root || currentRoot; lastSkills = m.skills || []; if ($("skillsOverlay").classList.contains("show")) renderSkills(lastSkills); maybeOnboard(); if ($("onboardOverlay").classList.contains("show")) renderOnb(); break;
+		case "status": lastModels = m.models || []; renderModels(m.models, m.loaded, m.gpu); updateCtx(m.loaded ? m.contextUsed : 0, m.loaded ? m.contextWindow : 0); updateMode(m.mode); updateNet(m.online); updateCheckpoints(m.checkpoints); updateChanged(m.changedFiles); currentRoot = m.root || currentRoot; updateWorkspace(currentRoot); renderRecents(m.recents); onSessionId(m.sessionId); lastSkills = m.skills || []; if ($("skillsOverlay").classList.contains("show")) renderSkills(lastSkills); maybeOnboard(); if ($("onboardOverlay").classList.contains("show")) renderOnb(); break;
 		case "gpu-usage": gpuUsagePct = m.usage; renderGpu(); break;
 		case "tree": renderTree(m.nodes); break;
 		case "file": openFile(m.path, m.content); if (pendingGoto && pendingGoto.path === m.path) { gotoLine(pendingGoto.line); pendingGoto = null; } break;
@@ -1535,7 +1763,9 @@ onMsg((m) => {
 		case "hf-files": renderHfFiles(m.repoId, m.files); break;
 		case "hf-error": hfStatus.textContent = "⚠️ " + m.message; hfBody.querySelectorAll(".hf-add-btn").forEach((b) => (b.disabled = false)); sfx.error(); break;
 		case "hf-token-ok": hfStatus.textContent = "Token saved locally ✓"; break;
-		case "tuning": tune = { inference: (m.config && m.config.inference) || {}, load: (m.config && m.config.load) || {} }; buildTune(); break;
+		// Ignore the echo while a local edit is still pending, or it rebuilds the panel from a
+		// payload that predates what the user has typed since — eating those keystrokes.
+		case "tuning": if (tuneTimer) break; tune = { inference: (m.config && m.config.inference) || {}, load: (m.config && m.config.load) || {} }; buildTune(); break;
 		case "reloaded": $("tuneReloadNote").textContent = "Reloaded ✓"; toast("Model reloaded"); break;
 		case "train-log": trainWrite(m.line + "\n"); break;
 		case "train-progress": $("trainLoss").textContent = "iter " + m.iter + (m.loss != null ? " · loss " + m.loss.toFixed(3) : "") + (m.valLoss != null ? " · val " + m.valLoss.toFixed(3) : ""); break;
@@ -1556,7 +1786,8 @@ onMsg((m) => {
 		case "undone": toast(m.deleted ? `Undid create of ${m.path}` : `Reverted ${m.path}`); if (m.deleted) closeTab(m.path); break;
 		case "undo-none": toast("Nothing to undo"); break;
 		case "sessions": renderSessions(m.list); break;
-		case "resumed": renderTranscript(m.events); toast(`Resumed ${m.id}`); $("sessionsOverlay").classList.remove("show"); break;
+		case "resumed": renderTranscript(m.events); toast(`Resumed ${m.id}`); break;
+		case "changes": renderChanges(m.list); break;
 		case "imported": toast(`Imported ${m.skills.length} skill(s), ${m.agents.length} agent(s)`); $("importStatus").textContent = `✓ skills: ${m.skills.join(", ") || "none"} · agents: ${m.agents.join(", ") || "none"}`; renderSkills(lastSkills); break;
 		case "import-error": $("importStatus").textContent = "⚠️ " + m.message; sfx.error(); break;
 		case "folder-opened": onFolderOpened(m.root, m.recents); break;
@@ -1581,13 +1812,10 @@ function selectDock(panel) {
 	dockPanel = panel; editorEl.classList.add("show-dock");
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.toggle("on", b.dataset.panel === panel));
 	$("pTerminal").hidden = panel !== "terminal"; $("pBrowser").hidden = panel !== "browser";
-	$("tTerm").classList.toggle("on", panel === "terminal"); $("tBrowser").classList.toggle("on", panel === "browser");
 	if (panel === "terminal") setTimeout(() => termInput.focus(), 0);
 }
-function closeDock() { dockPanel = null; editorEl.classList.remove("show-dock"); $("tTerm").classList.remove("on"); $("tBrowser").classList.remove("on"); }
+function closeDock() { dockPanel = null; editorEl.classList.remove("show-dock"); }
 function toggleDock(panel) { sfx.click(); dockPanel === panel ? closeDock() : selectDock(panel); }
-$("tTerm").onclick = () => toggleDock("terminal");
-$("tBrowser").onclick = () => toggleDock("browser");
 $("dockClose").onclick = closeDock;
 document.querySelectorAll(".dock-tab").forEach((b) => (b.onclick = () => selectDock(b.dataset.panel)));
 
@@ -1652,9 +1880,7 @@ const sfx = {
 	done:    () => { tone(880, 0.5, { type: "triangle", gain: 0.05, glideTo: 1174.66 }); }, // one sustained rising note to match the single long green blink
 	added:   () => { tone(523.25, 0.12, { gain: 0.045 }); tone(659.25, 0.12, { gain: 0.045, delay: 0.09 }); tone(783.99, 0.22, { gain: 0.045, delay: 0.18 }); }, // C–E–G
 };
-function updateSoundBtn() { const b = $("soundBtn"); b.textContent = soundOn ? "🔊" : "🔈"; b.title = soundOn ? "Sound on" : "Muted"; b.classList.toggle("off", !soundOn); }
-$("soundBtn").onclick = () => { soundOn = !soundOn; try { localStorage.setItem("llm-sound", soundOn ? "on" : "off"); } catch {} updateSoundBtn(); if (soundOn) sfx.click(); };
-updateSoundBtn();
+function toggleSound() { soundOn = !soundOn; try { localStorage.setItem("llm-sound", soundOn ? "on" : "off"); } catch {} if (soundOn) sfx.click(); }
 
 // ————— AI-status reactive ambient (idle → working → done-flash) —————
 let doneTimer;
@@ -1666,8 +1892,9 @@ function aiState(s) {
 }
 
 // ————— theming: presets + local AI generation —————
-// Earth-tone family. PRESETS[0] mirrors the :root defaults exactly, so "Sagebrush" == untouched.
+// Earth-tone family. PRESETS[0] mirrors the :root defaults exactly, so "Daylight" == untouched.
 const PRESETS = [
+	{ name: "Daylight", card: "#f8f6ef", bg: "#eceadf", text: "#2e2b22", accent: "#5f7a4e", keyword: "#8a6d20", string: "#4a6b3d", number: "#8a5f1e", func: "#4a6b56", comment: "#8b8577" },
 	{ name: "Sagebrush", card: "#413c33", bg: "#3a3529", text: "#f0ebdd", accent: "#8a9f7b", keyword: "#a18f5c", string: "#9db18c", number: "#c6ad72", func: "#8a9f7b", comment: "#7e7768" },
 	{ name: "Moss", card: "#2b3327", bg: "#22291f", text: "#e9efe0", accent: "#9db18c", keyword: "#c6ad72", string: "#b6c9a4", number: "#d3bb85", func: "#7fae86", comment: "#6e7a66" },
 	{ name: "Clay", card: "#3a2d26", bg: "#2e241f", text: "#f4e7dd", accent: "#c08a72", keyword: "#b5766a", string: "#cba887", number: "#d8b070", func: "#a89a6d", comment: "#7f6e62" },
@@ -1696,7 +1923,9 @@ function logoRamp() {
 		"--logo-hi": mix(ac, "#ffffff", 0.22),
 		"--logo-mid": ac,
 		"--logo-lo": mix(ac, "#000000", 0.22),
-		"--logo-ink": mix(bg, "#000000", 0.45),
+		// From the accent, not the background: on a light theme a bg-derived facet washes out to
+		// grey and the mark loses its two-tone reading.
+		"--logo-ink": mix(ac, "#000000", 0.72),
 		"--logo-line": mix(ac, "#ffffff", 0.28),
 		"--logo-bar": bar,
 	};
@@ -1719,14 +1948,53 @@ function applyLogoTheme() {
 	if (el) el.href = "data:image/svg+xml," + encodeURIComponent(logoSvg(ramp, 64));
 }
 const isColor = (v) => typeof v === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$|^(rgb|hsl)a?\(/i.test(v.trim());
+const lum = (h) => { const [r, g, b] = hex2rgb(h); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+
+// A preset only carries nine roles. Every other colour — hover fills, borders, dimmed ink, success
+// and failure — was hardcoded for a dark surface, which is precisely why a light theme could not be
+// expressed: choose a pale background and the borders stayed near-black and the dim text stayed
+// cream. Derive them from the base instead and both directions come out self-consistent, whether
+// the base arrives from a preset or from a hand-picked colour.
+const DERIVED = ["--card-2", "--card-3", "--brd", "--brd-soft", "--tx-dim", "--tx-faint", "--s-pn", "--s-id",
+	"--ac-fg", "--ac-soft", "--sel", "--warn", "--ok", "--err", "--mp-scrim"];
+function derived(t) {
+	const card = t.card, bg = t.bg, tx = t.text, ac = t.accent;
+	// Mixing a surface toward the *text* colour lightens it on a dark theme and darkens it on a
+	// light one, so one ratio gives the right hover/pressed step in both.
+	const onLight = lum(bg) > 0.5;
+	const readable = (c) => (onLight ? mix(c, "#1d1b15", 0.3) : c);
+	return {
+		"--card-2": mix(card, tx, 0.07),
+		"--card-3": mix(card, tx, 0.14),
+		"--brd": mix(card, tx, 0.24),
+		"--brd-soft": mix(card, tx, 0.15),
+		"--tx-dim": mix(tx, bg, 0.3),
+		"--tx-faint": mix(tx, bg, 0.52),
+		"--s-pn": mix(tx, bg, 0.28),
+		"--s-id": tx,
+		"--ac-fg": lum(ac) > 0.55 ? "#1d1b15" : "#fbf9f3",
+		"--ac-soft": ac + "2e",
+		"--sel": ac + "40",
+		"--warn": readable(t.number),
+		"--ok": readable(t.string),
+		"--err": readable("#b5766a"),
+		// The picker's animation is drawn in light strokes, so it reads as a glow over a dark panel
+		// and as grey banding over a pale one. Hold more of it back on a light theme.
+		"--mp-scrim": onLight
+			? `linear-gradient(96deg, ${card}fc 0%, ${card}f7 46%, ${card}ea 100%)`
+			: `linear-gradient(96deg, ${card}f5 0%, ${card}e6 46%, ${card}c7 100%)`,
+	};
+}
 function applyTheme(theme, persist = true) {
 	const root = document.documentElement;
 	for (const [k, cssVar] of Object.entries(VAR_MAP)) if (isColor(theme[k])) root.style.setProperty(cssVar, theme[k].trim());
+	// Read back rather than trusting `theme` — a hand-picked colour arrives as a partial.
+	for (const [k, v] of Object.entries(derived(currentTheme()))) root.style.setProperty(k, v);
 	applyLogoTheme();
 	if (persist) { try { localStorage.setItem("llm-theme-v2", JSON.stringify(theme)); } catch {} }
 }
 function resetTheme() {
-	Object.values(VAR_MAP).forEach((v) => document.documentElement.style.removeProperty(v));
+	[...Object.values(VAR_MAP), ...DERIVED].forEach((v) => document.documentElement.style.removeProperty(v));
 	try { localStorage.removeItem("llm-theme-v2"); } catch {}
 	applyLogoTheme();
 }
@@ -1767,9 +2035,11 @@ function renderColorPickers() {
 		row.innerHTML = `<span>${role.label}</span><input type="color" value="${cur}" aria-label="${role.label}">`;
 		const inp = row.querySelector("input");
 		inp.oninput = () => {
+			// Go through applyTheme so a hand-picked colour re-derives the surfaces and inks too.
+			// Setting the one variable and stopping is what left a light background with black
+			// borders and cream body text.
 			document.documentElement.style.setProperty(VAR_MAP[role.key], inp.value);
-			applyLogoTheme();
-			try { localStorage.setItem("llm-theme-v2", JSON.stringify(currentTheme())); } catch {}
+			applyTheme(currentTheme());
 		};
 		host.appendChild(row);
 	}
@@ -1812,7 +2082,7 @@ function selectSettingsTab(tab) {
 	document.querySelectorAll(".tab-panel").forEach((p) => (p.hidden = p.dataset.tab !== tab));
 }
 document.querySelectorAll(".settings-tabs button").forEach((b) => (b.onclick = () => { selectSettingsTab(b.dataset.tab); sfx.click(); }));
-$("customizeBtn").onclick = () => { renderPresets(); renderColorPickers(); selectSettingsTab("theme"); $("themeStatus").textContent = ""; $("themeOverlay").classList.add("show"); sfx.click(); };
+function openCustomize() { renderPresets(); renderColorPickers(); selectSettingsTab("theme"); $("themeStatus").textContent = ""; $("themeOverlay").classList.add("show"); sfx.click(); }
 $("themeClose").onclick = () => $("themeOverlay").classList.remove("show");
 $("themeReset").onclick = () => {
 	resetTheme(); renderColorPickers();
@@ -1825,6 +2095,7 @@ applyLogoTheme();
 
 // ————— model tuning (per-model presets: sampling live, load knobs on reload) —————
 let tune = { inference: {}, load: {} };
+let tunedFor = null; // model id `tune` was last synced for — see renderModels
 const TUNE_SPEC = {
 	inference: [
 		{ key: "temperature", label: "Temperature", min: 0, max: 2, step: 0.05 },
@@ -1849,6 +2120,7 @@ const TUNE_BOOL = [
 ];
 let tuneTimer = null;
 function sendTune() {
+	tuneTimer = null; // a fired setTimeout handle stays truthy — clear it so the echo guard reopens
 	const cfg = {};
 	if (Object.keys(tune.inference).length) cfg.inference = tune.inference;
 	if (Object.keys(tune.load).length) cfg.load = tune.load;
@@ -1888,7 +2160,9 @@ function buildTune() {
 	for (const b of TUNE_BOOL) tuneBoolRow(load, "load", b);
 	$("tuneSys").value = tune.inference.systemPrompt || "";
 }
-$("tuneSys").oninput = () => setTune("inference", "systemPrompt", $("tuneSys").value.trim() || undefined);
+// No .trim() here: trimming the live editing buffer round-trips back into the textarea and eats
+// the space or newline you just typed. orchestrator.ts trims at the composition boundary instead.
+$("tuneSys").oninput = () => setTune("inference", "systemPrompt", $("tuneSys").value || undefined);
 function openTune() {
 	if (!hasModel) { toast("Load a model first."); return; }
 	send({ type: "get-tuning" });
@@ -1918,7 +2192,7 @@ function trainSwitch(tab) {
 	if (tab === "runs" || tab === "evaluate") refreshRuns();
 }
 document.querySelectorAll(".train-tabs button").forEach((b) => (b.onclick = () => { trainSwitch(b.dataset.gtab); sfx.click(); }));
-$("trainBtn").onclick = () => { $("trainOverlay").classList.add("show"); refreshRuns(); sfx.click(); };
+function openTraining() { $("trainOverlay").classList.add("show"); refreshRuns(); sfx.click(); }
 $("trainClose").onclick = () => $("trainOverlay").classList.remove("show");
 $("trainOverlay").addEventListener("click", (e) => { if (e.target.id === "trainOverlay") $("trainOverlay").classList.remove("show"); });
 $("trainStart").onclick = () => {
@@ -1933,6 +2207,19 @@ $("trainStart").onclick = () => {
 	send({ type: "train-start", config }); sfx.click();
 };
 $("trainStop").onclick = () => { send({ type: "train-stop" }); trainWrite("\n■ Stop requested…\n"); };
+
+// Remember the Setup tab across launches. Without this every relaunch silently reset all nine
+// fields to the built-in demo defaults, discarding a hyperparameter set someone had dialled in.
+const TRAIN_FIELDS = ["trBase", "trData", "trHf", "trIters", "trLr", "trRank", "trBatch", "trSeq", "trLayers"];
+try {
+	const saved = JSON.parse(localStorage.getItem("llm-train") || "{}");
+	for (const k of TRAIN_FIELDS) if (saved[k] != null && saved[k] !== "") $(k).value = saved[k];
+} catch {}
+for (const k of TRAIN_FIELDS) {
+	$(k).addEventListener("input", () => {
+		try { localStorage.setItem("llm-train", JSON.stringify(Object.fromEntries(TRAIN_FIELDS.map((f) => [f, $(f).value])))); } catch {}
+	});
+}
 
 // ————— runs history + evaluation (base vs fine-tuned) —————
 const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -2019,7 +2306,11 @@ function renderRuns(runs) {
 			+ `<button class="run-act" data-act="convert" data-run="${escHtml(r.runId)}">Convert &amp; add</button></div>`;
 	}).join("") : '<div class="eval-empty">No runs yet. Train a model in the Setup tab.</div>';
 	host.querySelectorAll(".run-act").forEach((b) => (b.onclick = () => runAction(b.dataset.act, b.dataset.run)));
+	// Preserve the current selection across a rebuild: renderRuns fires on every train-runs echo,
+	// which lands right after runAction sets the run the user just clicked Evaluate on.
+	const keep = $("evalRun").value;
 	$("evalRun").innerHTML = lastRuns.map((r) => `<option value="${escHtml(r.runId)}">${escHtml(r.runId)}${r.baseModel ? " — " + escHtml(r.baseModel.split("/").pop()) : ""}</option>`).join("");
+	if (lastRuns.some((r) => r.runId === keep)) $("evalRun").value = keep;
 	if (lastRuns.length) previewLoss();
 }
 function runAction(act, runId) {
@@ -2077,12 +2368,14 @@ function renderHfFiles(repoId, files) {
 // looks broken when the first click appears to do nothing.
 const narrowFiles = matchMedia("(max-width: 1180px)");
 const narrowAgent = matchMedia("(max-width: 860px)");
+function sideVisible() { const app = $("app").classList; return !app.contains("hide-files") && (!narrowFiles.matches || app.contains("show-files")); }
 function syncPanels() {
 	const app = $("app").classList;
-	$("tFiles").classList.toggle("on", !app.contains("hide-files") && (!narrowFiles.matches || app.contains("show-files")));
-	$("tAgent").classList.toggle("on", !app.contains("hide-agent") && (!narrowAgent.matches || app.contains("show-agent")));
+	const agent = !app.contains("hide-agent") && (!narrowAgent.matches || app.contains("show-agent"));
+	$("tSide").classList.toggle("on", sideVisible()); $("tSide").setAttribute("aria-pressed", String(sideVisible()));
+	$("tAgent").classList.toggle("on", agent); $("tAgent").setAttribute("aria-pressed", String(agent));
 }
-function togglePanel(btn, hide, show, narrow) {
+function togglePanel(hide, show, narrow) {
 	const app = $("app").classList;
 	const visible = !app.contains(hide) && (!narrow.matches || app.contains(show));
 	app.toggle(hide, visible);
@@ -2090,35 +2383,138 @@ function togglePanel(btn, hide, show, narrow) {
 	syncPanels();
 	sfx.click();
 }
-$("tFiles").onclick = () => togglePanel($("tFiles"), "hide-files", "show-files", narrowFiles);
-$("tAgent").onclick = () => togglePanel($("tAgent"), "hide-agent", "show-agent", narrowAgent);
+$("tSide").onclick = () => togglePanel("hide-files", "show-files", narrowFiles);
+$("tAgent").onclick = () => togglePanel("hide-agent", "show-agent", narrowAgent);
 narrowFiles.addEventListener("change", syncPanels);
 narrowAgent.addEventListener("change", syncPanels);
 syncPanels();
 
+// ————— sidebar tabs: Files · Sessions · Changes —————
+const SIDE_TABS = [["sTabFiles", "viewFiles"], ["sTabSessions", "viewSessions"], ["sTabChanges", "viewChanges"]];
+let sideTab = "sTabFiles";
+function selectSide(tab) {
+	sideTab = tab;
+	for (const [t, v] of SIDE_TABS) { const on = t === tab; $(t).setAttribute("aria-selected", String(on)); $(v).hidden = !on; }
+	if (!sideVisible()) togglePanel("hide-files", "show-files", narrowFiles);
+	if (tab === "sTabSessions") { send({ type: "sessions" }); setTimeout(() => $("sessFilter").focus(), 0); }
+	if (tab === "sTabChanges") send({ type: "changes" });
+}
+for (const [t] of SIDE_TABS) $(t).onclick = () => { selectSide(t); sfx.click(); };
+
+// ————— dropdown menus (mode + overflow) —————
+// One builder for both. Labels are set with textContent, not innerHTML — these arrays are static
+// today but a session label or skill name could end up in one, and that's a needless XSS door.
+function closeMenus() {
+	for (const id of ["modeMenu", "moreMenu"]) $(id).classList.remove("show");
+	for (const id of ["modeBadge", "moreBtn"]) $(id).setAttribute("aria-expanded", "false");
+}
+function openMenu(menuId, btn, items) {
+	const m = $(menuId);
+	if (m.classList.contains("show")) { closeMenus(); return; }
+	closeMenus();
+	m.innerHTML = "";
+	for (const it of items) {
+		if (it.sep) { const s = document.createElement("div"); s.className = "menu-sep"; m.appendChild(s); continue; }
+		const b = document.createElement("button");
+		b.className = "menu-item" + (it.on ? " on" : ""); b.setAttribute("role", "menuitem");
+		const ic = document.createElement("span"); ic.className = "ic"; ic.textContent = it.ic || ""; ic.setAttribute("aria-hidden", "true");
+		const lb = document.createElement("span"); lb.className = "lb"; lb.textContent = it.t;
+		if (it.d) { const d = document.createElement("span"); d.className = "d"; d.textContent = it.d; lb.appendChild(d); }
+		b.append(ic, lb);
+		if (it.k) { const k = document.createElement("span"); k.className = "k"; k.textContent = it.k; b.appendChild(k); }
+		b.onclick = () => { closeMenus(); it.r(); };
+		m.appendChild(b);
+	}
+	m.classList.add("show");
+	const r = btn.getBoundingClientRect();
+	m.style.left = Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8)) + "px";
+	m.style.top = r.bottom + 6 + "px";
+	btn.setAttribute("aria-expanded", "true");
+	sfx.click();
+}
+document.addEventListener("mousedown", (e) => { if (!e.target.closest(".menu, #modeBadge, #moreBtn")) closeMenus(); });
+
 // ————— permission mode · network · checkpoints —————
 let currentMode = "manual", cpCount = 0, lastSkills = [];
 const MODES = ["manual", "accept-edits", "plan", "auto"];
-function updateMode(mode) { if (mode) currentMode = mode; const b = $("modeBadge"); if (b) { b.textContent = currentMode; b.style.opacity = currentMode === "plan" ? ".8" : "1"; } }
+// Clicking the badge used to cycle blind through four modes with no way to see what the others
+// were, let alone what they did. Same four modes, spelled out.
+const MODE_HELP = {
+	"manual": "Ask before every file change or command.",
+	"accept-edits": "File edits apply automatically; commands still ask.",
+	"plan": "Research and propose only — nothing is written.",
+	"auto": "Run everything without asking. Careful.",
+};
+function updateMode(mode) {
+	if (mode) currentMode = mode;
+	const b = $("modeBadge"); if (!b) return;
+	$("modeName").textContent = currentMode;
+	b.dataset.mode = currentMode;
+	b.title = `${currentMode} — ${MODE_HELP[currentMode] || ""}  (Shift+Tab to cycle)`;
+}
 function cycleMode() { const i = MODES.indexOf(currentMode); send({ type: "set-mode", mode: MODES[(i + 1) % MODES.length] }); sfx.click(); }
+function setMode(mode) { if (mode !== currentMode) send({ type: "set-mode", mode }); }
 // The badge used to read "no external services" unconditionally, which is not true: the model
 // manager talks to huggingface.co to search and download GGUFs, and it has to — there is no way
 // to get a first model onto the machine otherwise. What the switch actually gates is the agent's
 // reach (web tools, remote MCP, URL skill imports). Say that instead of overclaiming.
+let netOnline = false;
 function updateNet(online) {
-	const d = $("netDot"), l = $("netLabel");
+	netOnline = !!online;
+	const d = $("netDot"), l = $("netLabel"), c = $("netChip");
 	if (l) {
 		l.textContent = online ? "Online tools enabled" : "Local only · your code stays here";
 		l.parentElement.title = online
-			? "The assistant may use web tools and remote MCP servers."
-			: "Inference runs in-process and your files never leave the device. The model manager is the one component that uses the network, and only when you search for or download a model.";
+			? "The assistant may use web tools. Click to go back to local only."
+			: "Inference runs in-process and your files never leave the device. The model manager is the one component that uses the network, and only when you search for or download a model. Click to allow the assistant web tools.";
 	}
-	if (d) { d.style.background = online ? "#a18f5c" : "#8a9f7b"; }
+	if (c) c.setAttribute("aria-pressed", online ? "true" : "false");
+	if (d) { d.style.background = online ? "var(--warn)" : "var(--ac)"; }
 }
-function updateCheckpoints(n) { cpCount = n || 0; const b = $("sessionsBtn"); if (b) b.title = `Sessions · ${cpCount} checkpoint(s) · press Esc twice to undo`; }
+// The switch was previously reachable only by hand-editing ~/.local-language-machine/settings.json
+// and relaunching, while the status chip looked like a control. Make it one.
+$("netChip").onclick = () => { send({ type: "set-online", online: !netOnline }); sfx.click(); };
+// The count used to live in a title="" attribute on a button, which is to say nowhere. It's the
+// only signal that the Esc-Esc rewind has anything to rewind, so it gets to be visible.
+function updateCheckpoints(n) {
+	cpCount = n || 0;
+	const t = cpCount
+		? `${cpCount} change${cpCount === 1 ? "" : "s"} this session — click to review, or press Esc twice to undo the last`
+		: "No changes this session";
+	for (const id of ["cpChip", "stCp"]) { $(id).hidden = cpCount === 0; $(id).title = t; }
+	$("cpCount").textContent = cpCount; $("stCpN").textContent = cpCount;
+	$("undoBtn").disabled = cpCount === 0;
+}
 let toastTimer; function toast(text) { const t = $("toast"); t.textContent = text; t.style.opacity = "1"; clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.style.opacity = "0"), 2600); }
 
-$("modeBadge").onclick = cycleMode;
+// ————— title bar wiring —————
+function updateWorkspace(root) {
+	const name = String(root || "").replace(/\/+$/, "").split("/").pop();
+	$("wsName").textContent = name || "Local Language Machine";
+	$("wsBtn").title = root ? `${root}\nClick to switch workspace folder` : "Switch workspace folder";
+}
+$("wsBtn").onclick = openFolderPicker;
+$("sessionTitle").onclick = () => selectSide("sTabSessions");
+$("cpChip").onclick = () => selectSide("sTabChanges");
+$("stCp").onclick = () => selectSide("sTabChanges");
+$("undoBtn").onclick = () => send({ type: "undo" });
+$("modeBadge").onclick = () => openMenu("modeMenu", $("modeBadge"), MODES.map((m) => ({
+	t: m, d: MODE_HELP[m], ic: m === currentMode ? "◈" : "", on: m === currentMode, r: () => setMode(m),
+})));
+$("moreBtn").onclick = () => openMenu("moreMenu", $("moreBtn"), [
+	{ t: "Sessions", ic: "⧉", k: "⌘⇧S", r: () => selectSide("sTabSessions") },
+	{ t: "Changes", ic: "⟲", k: "⌘⇧D", r: () => selectSide("sTabChanges") },
+	{ t: "Terminal", ic: "❯", k: "⌘J", r: () => toggleDock("terminal") },
+	{ t: "Browser", ic: "◍", r: () => toggleDock("browser") },
+	{ sep: true },
+	{ t: "Skills & import", ic: "✦", r: openSkills },
+	{ t: "Model training", ic: "🎓", r: openTraining },
+	{ t: "Customize theme", ic: "✧", r: openCustomize },
+	{ sep: true },
+	{ t: soundOn ? "Sound on" : "Sound muted", ic: soundOn ? "🔊" : "🔈", on: soundOn, r: toggleSound },
+	{ t: "Getting started", ic: "?", r: openHelp },
+	{ t: "All commands", ic: "⌘", k: "⌘⇧P", r: openPalette },
+]);
 
 // ————— global keys: Shift+Tab cycles mode · Esc Esc undoes the last file change —————
 let lastEsc = 0;
@@ -2130,27 +2526,254 @@ document.addEventListener("keydown", (e) => {
 	}
 	if (e.key === "Escape") {
 		const open = document.querySelector(".overlay.show");
+		if (document.querySelector(".menu.show")) { closeMenus(); return; }
 		if (findbarShown()) { closeFind(); return; }
+		if (diffPath && !open) { closeDiff(); lastEsc = 0; return; }
 		if (open) { if (open.id === "promptOverlay") closePrompt(null); else open.classList.remove("show"); lastEsc = 0; return; }
 		const now = Date.now();
 		if (now - lastEsc < 600) { lastEsc = 0; send({ type: "undo" }); } else lastEsc = now;
 	}
 });
 
-// ————— sessions —————
-$("sessionsBtn").onclick = () => { send({ type: "sessions" }); $("sessionsBody").innerHTML = '<div class="hf-repo-meta">Loading…</div>'; $("sessionsOverlay").classList.add("show"); sfx.click(); };
-$("sessionsClose").onclick = () => $("sessionsOverlay").classList.remove("show");
-$("sessionsOverlay").addEventListener("click", (e) => { if (e.target.id === "sessionsOverlay") $("sessionsOverlay").classList.remove("show"); });
+// ————— sessions (left sidebar) —————
+let sessList = [], sessId = null;
+const startOfDay = (ms) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+function relTime(ms) {
+	const s = Math.max(0, (Date.now() - ms) / 1000);
+	if (s < 90) return "just now";
+	if (s < 3600) return `${Math.round(s / 60)}m ago`;
+	if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+	return `${Math.round(s / 86400)}d ago`;
+}
+function sessGroup(ms) {
+	const days = Math.round((startOfDay(Date.now()) - startOfDay(ms)) / 86400000);
+	return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? "This week" : "Older";
+}
+function updateSessionTitle() {
+	const s = sessList.find((x) => x.id === sessId);
+	$("sessionTitle").querySelector(".nm").textContent = (s && s.label) || "New session";
+	$("sessionTitle").title = sessId ? `Session ${sessId} — click to browse sessions` : "Click to browse sessions";
+}
 function renderSessions(list) {
-	const b = $("sessionsBody"); b.innerHTML = "";
-	if (!list || !list.length) { b.innerHTML = '<div class="hf-repo-meta">No saved sessions yet.</div>'; return; }
-	for (const s of list) {
-		const row = document.createElement("div"); row.className = "hf-repo";
-		row.innerHTML = `<div class="hf-repo-id">${s.id}</div><div class="hf-repo-meta">${(s.label || "(empty)").replace(/</g, "&lt;")}</div>`;
-		row.onclick = () => send({ type: "resume-session", id: s.id });
-		b.appendChild(row);
+	if (list) sessList = list;
+	updateSessionTitle();
+	const q = $("sessFilter").value.trim().toLowerCase();
+	const rows = sessList.filter((s) => !q || (s.label || "").toLowerCase().includes(q) || s.id.includes(q));
+	const host = $("sessList"); host.innerHTML = "";
+	if (!rows.length) {
+		const e = document.createElement("div"); e.className = "side-empty";
+		e.textContent = sessList.length ? "No session matches that filter." : "No conversations yet. Send a message to start one.";
+		host.appendChild(e); return;
+	}
+	let group = null;
+	for (const s of rows) {
+		const g = sessGroup(s.mtime);
+		if (g !== group) { group = g; const h = document.createElement("div"); h.className = "side-group"; h.textContent = g; host.appendChild(h); }
+		const b = document.createElement("button");
+		b.className = "sess" + (s.id === sessId ? " active" : "");
+		b.title = `${s.id} — click to resume`;
+		const t = document.createElement("div"); t.className = "t"; t.textContent = s.label || "(no messages)";
+		const m = document.createElement("div"); m.className = "m";
+		m.textContent = [relTime(s.mtime), s.messages ? `${s.messages} msg` : null, s.tokens ? `${tok(s.tokens)} tok` : null].filter(Boolean).join(" · ");
+		b.append(t, m);
+		b.onclick = () => { if (s.id !== sessId) send({ type: "resume-session", id: s.id }); };
+		host.appendChild(b);
 	}
 }
+$("sessFilter").addEventListener("input", () => renderSessions());
+// A new id means /clear, a resume, or a folder switch — refetch so the list and the title agree.
+function onSessionId(id) {
+	if (!id || id === sessId) return;
+	sessId = id;
+	updateSessionTitle();
+	send({ type: "sessions" });
+}
+
+// ————— changes this session —————
+// The checkpoint stack already knew every file the agent touched; it was only ever rendered as a
+// number inside a title="" attribute. status carries the paths, the bodies are fetched on demand.
+let chgList = [], diffPath = null, changedKey = "";
+function updateChanged(list) {
+	const arr = list || [];
+	$("sTabChangesN").textContent = arr.length || "";
+	const key = arr.join("\n");
+	if (key === changedKey) return;
+	changedKey = key;
+	if (sideTab === "sTabChanges") send({ type: "changes" });
+	if (diffPath && !arr.includes(diffPath)) closeDiff();
+}
+function renderChanges(list) {
+	if (list) chgList = list;
+	// An open diff for a file that just left the list (undone, or the folder switched) has nothing
+	// left to show. Guard here rather than at each caller so every refresh path is covered.
+	if (diffPath && !chgList.some((c) => c.path === diffPath)) hideDiff();
+	const host = $("chgList"); host.innerHTML = "";
+	if (!chgList.length) {
+		const e = document.createElement("div"); e.className = "side-empty";
+		e.textContent = "Nothing changed yet. Files the assistant edits appear here with a diff, and Esc Esc rewinds the last one.";
+		host.appendChild(e); return;
+	}
+	for (const c of chgList) {
+		const { add, del } = diffStat(c);
+		const b = document.createElement("button");
+		b.className = "chg" + (c.path === diffPath ? " active" : "");
+		b.title = `${c.path}\n${c.before === null ? "created this session" : c.after === null ? "deleted" : "edited this session"}`;
+		const cut = c.path.lastIndexOf("/") + 1;
+		const p = document.createElement("span"); p.className = "p";
+		if (cut) { const d = document.createElement("span"); d.className = "d"; d.textContent = c.path.slice(0, cut); p.appendChild(d); }
+		p.appendChild(document.createTextNode(c.path.slice(cut)));
+		const st = document.createElement("span"); st.className = "st";
+		const a = document.createElement("span"); a.className = "a"; a.textContent = `+${add}`;
+		const r = document.createElement("span"); r.className = "r"; r.textContent = ` −${del}`;
+		st.append(a, r);
+		b.append(p, st);
+		b.onclick = () => openDiff(c.path);
+		host.appendChild(b);
+	}
+}
+const diffStatCache = new WeakMap();
+function diffStat(c) {
+	let v = diffStatCache.get(c);
+	if (!v) {
+		const rows = diffLines(c.before ?? "", c.after ?? "");
+		v = { add: rows.filter((r) => r.op === "+").length, del: rows.filter((r) => r.op === "-").length, rows };
+		diffStatCache.set(c, v);
+	}
+	return v;
+}
+
+// Line diff. Trimming the common prefix/suffix first is what keeps this cheap: a one-line edit in a
+// 3000-line file leaves a 1×1 window for the LCS pass. Comparing by index instead would report every
+// line after an insertion as changed, which is the whole reason not to do the naive version.
+function diffLines(a, b) {
+	// "".split("\n") is [""], so an empty side would otherwise contribute a phantom blank line —
+	// a file the agent just created would render as "deleted one empty line, added the rest".
+	const A = a ? a.split("\n") : [], B = b ? b.split("\n") : [];
+	let s = 0;
+	while (s < A.length && s < B.length && A[s] === B[s]) s++;
+	let e = 0;
+	while (e < A.length - s && e < B.length - s && A[A.length - 1 - e] === B[B.length - 1 - e]) e++;
+	const ma = A.slice(s, A.length - e), mb = B.slice(s, B.length - e);
+	const out = [];
+	for (let i = 0; i < s; i++) out.push({ op: " ", a: i + 1, b: i + 1, t: A[i] });
+	const n = ma.length, m = mb.length;
+	if (n * m > 1e6) {
+		// ponytail: past ~1000×1000 changed lines the DP table costs more than the detail is worth —
+		// show it as a wholesale replacement. Swap in Myers if that ever bites.
+		ma.forEach((t, i) => out.push({ op: "-", a: s + i + 1, t }));
+		mb.forEach((t, i) => out.push({ op: "+", b: s + i + 1, t }));
+	} else {
+		const w = m + 1, L = new Uint32Array((n + 1) * w);
+		for (let i = n - 1; i >= 0; i--)
+			for (let j = m - 1; j >= 0; j--)
+				L[i * w + j] = ma[i] === mb[j] ? L[(i + 1) * w + j + 1] + 1 : Math.max(L[(i + 1) * w + j], L[i * w + j + 1]);
+		let i = 0, j = 0;
+		while (i < n && j < m) {
+			if (ma[i] === mb[j]) { out.push({ op: " ", a: s + i + 1, b: s + j + 1, t: ma[i] }); i++; j++; }
+			else if (L[(i + 1) * w + j] >= L[i * w + j + 1]) { out.push({ op: "-", a: s + i + 1, t: ma[i] }); i++; }
+			else { out.push({ op: "+", b: s + j + 1, t: mb[j] }); j++; }
+		}
+		while (i < n) { out.push({ op: "-", a: s + i + 1, t: ma[i] }); i++; }
+		while (j < m) { out.push({ op: "+", b: s + j + 1, t: mb[j] }); j++; }
+	}
+	const tailA = A.length - e, tailB = B.length - e;
+	for (let k = 0; k < e; k++) out.push({ op: " ", a: tailA + k + 1, b: tailB + k + 1, t: A[tailA + k] });
+	return out;
+}
+/** Collapse runs of untouched lines more than `ctx` away from any change. */
+function collapse(rows, ctx = 3) {
+	const keep = new Set();
+	rows.forEach((r, i) => {
+		if (r.op === " ") return;
+		for (let k = Math.max(0, i - ctx); k <= Math.min(rows.length - 1, i + ctx); k++) keep.add(k);
+	});
+	const out = []; let skipped = 0;
+	rows.forEach((r, i) => {
+		if (!keep.has(i)) { skipped++; return; }
+		if (skipped) { out.push({ op: "~", n: skipped }); skipped = 0; }
+		out.push(r);
+	});
+	if (skipped) out.push({ op: "~", n: skipped });
+	return out;
+}
+
+function openDiff(path) {
+	const c = chgList.find((x) => x.path === path);
+	if (!c) return;
+	diffPath = path;
+	const { add, del, rows } = diffStat(c);
+	const host = $("diffView"); host.innerHTML = "";
+	const head = document.createElement("div"); head.className = "diff-head";
+	const fp = document.createElement("span"); fp.className = "fp"; fp.textContent = path;
+	const note = document.createElement("span");
+	note.textContent = c.before === null ? "new file" : c.after === null ? "deleted" : "changed this session";
+	const stat = document.createElement("span");
+	const sa = document.createElement("span"); sa.className = "a"; sa.textContent = `+${add}`;
+	const sr = document.createElement("span"); sr.className = "r"; sr.textContent = ` −${del}`;
+	stat.append(sa, sr);
+	const x = document.createElement("button"); x.className = "mini"; x.textContent = "✕"; x.title = "Close diff (Esc)"; x.onclick = closeDiff;
+	head.append(fp, note, stat, x);
+	host.appendChild(head);
+	for (const r of collapse(rows)) {
+		const el = document.createElement("div");
+		el.className = "dl" + (r.op === "+" ? " add" : r.op === "-" ? " del" : r.op === "~" ? " skip" : "");
+		const ln = document.createElement("span"); ln.className = "ln";
+		const tx = document.createElement("span"); tx.className = "tx";
+		if (r.op === "~") { ln.textContent = "⋯"; tx.textContent = `${r.n} unchanged line${r.n === 1 ? "" : "s"}`; }
+		else { ln.textContent = `${r.a ?? "·"} ${r.b ?? "·"}`; tx.textContent = `${r.op === " " ? " " : r.op} ${r.t}`; }
+		el.append(ln, tx);
+		host.appendChild(el);
+	}
+	$("diffView").hidden = false; $("findbar").classList.remove("show");
+	syncWelcome();
+	renderChanges();
+}
+function hideDiff() { diffPath = null; $("diffView").hidden = true; syncWelcome(); }
+function closeDiff() { if (diffPath) { hideDiff(); renderChanges(); } }
+
+// ————— welcome screen —————
+// The editor pane used to be a blank rectangle until you opened a file, which is where the "nothing
+// tells me what to do" feeling started. Three states share the pane: welcome, editor, diff.
+function syncWelcome() {
+	const wel = files.size === 0 && !diffPath;
+	$("welcome").hidden = !wel;
+	$("editRegion").hidden = wel || !!diffPath;
+}
+function renderRecents(list) {
+	const host = $("welRecent"); host.innerHTML = "";
+	const rows = (list || []).filter((p) => p !== currentRoot).slice(0, 6);
+	if (!rows.length) {
+		const e = document.createElement("div"); e.className = "wel-empty";
+		e.textContent = "Nothing else yet — folders you open show up here.";
+		host.appendChild(e); return;
+	}
+	for (const p of rows) {
+		const b = document.createElement("button"); b.className = "wel-r"; b.title = p;
+		const nm = document.createElement("span"); nm.className = "nm";
+		nm.textContent = p.replace(/\/+$/, "").split("/").pop() || p;
+		const pt = document.createElement("span"); pt.className = "pt";
+		pt.textContent = p.replace(/^\/(Users|home)\/[^/]+/, "~");
+		b.append(nm, pt);
+		b.onclick = () => send({ type: "open-folder", path: p });
+		host.appendChild(b);
+	}
+}
+function focusComposer() {
+	const app = $("app").classList;
+	if (app.contains("hide-agent") || (narrowAgent.matches && !app.contains("show-agent"))) togglePanel("hide-agent", "show-agent", narrowAgent);
+	input.focus();
+}
+$("welNewFile").onclick = () => newFileIn("");
+$("welOpen").onclick = () => openFolderPicker();
+$("welPalette").onclick = () => openPalette();
+$("welSearch").onclick = () => showSearchView(true);
+$("welTerm").onclick = () => toggleDock("terminal");
+$("welAsk").onclick = focusComposer;
+$("welOnb").onclick = () => openHelp();
+$("welSessions").onclick = () => selectSide("sTabSessions");
+$("welSkills").onclick = () => openSkills();
+$("welTrain").onclick = () => openTraining();
+$("welTheme").onclick = () => openCustomize();
 function renderTranscript(events) {
 	chatEl.innerHTML = ""; turn = textEl = lastTool = null;
 	for (const e of events || []) {
@@ -2162,7 +2785,7 @@ function renderTranscript(events) {
 }
 
 // ————— skills + import —————
-$("skillsBtn").onclick = () => { renderSkills(lastSkills); $("importStatus").textContent = ""; $("skillsOverlay").classList.add("show"); sfx.click(); };
+function openSkills() { renderSkills(lastSkills); $("importStatus").textContent = ""; $("skillsOverlay").classList.add("show"); sfx.click(); }
 $("skillsCloseBtn").onclick = () => $("skillsOverlay").classList.remove("show");
 $("skillsOverlay").addEventListener("click", (e) => { if (e.target.id === "skillsOverlay") $("skillsOverlay").classList.remove("show"); });
 function renderSkills(list) {
@@ -2223,7 +2846,11 @@ function renderFolderBrowse(m) {
 }
 function onFolderOpened(root) {
 	currentRoot = root;
+	updateWorkspace(root);
 	$("folderOverlay").classList.remove("show");
+	// sessions and changes are per-project — drop the previous folder's entirely
+	closeDiff(); chgList = []; changedKey = ""; renderChanges();
+	sessList = []; sessId = null; $("sessFilter").value = ""; renderSessions([]);
 	// The server already switched ROOT, the terminal cwd, and the assistant's session — now reset
 	// every client panel so nothing from the old folder lingers.
 	// editor
@@ -2267,7 +2894,7 @@ $("tree").addEventListener("contextmenu", (e) => { const row = e.target.closest(
 document.addEventListener("click", closeCtx);
 
 // ————— global search / replace —————
-function showSearchView(on) { $("searchView").hidden = !on; $("tree").style.display = on ? "none" : ""; $("explorerTitle").textContent = on ? "Search" : "Explorer"; $("btnSearchToggle").classList.toggle("on", on); if (on) setTimeout(() => $("searchQuery").focus(), 0); }
+function showSearchView(on) { if (on) selectSide("sTabFiles"); $("searchView").hidden = !on; $("tree").style.display = on ? "none" : ""; $("explorerTitle").textContent = on ? "Search" : "Explorer"; $("btnSearchToggle").classList.toggle("on", on); if (on) setTimeout(() => $("searchQuery").focus(), 0); }
 $("btnSearchToggle").onclick = () => showSearchView($("searchView").hidden);
 let searchTimer;
 function runSearch() { const q = $("searchQuery").value; if (!q) { $("searchResults").innerHTML = ""; return; } send({ type: "search", query: q, regex: $("searchRegex").checked, caseSensitive: $("searchCase").checked }); }
@@ -2302,9 +2929,15 @@ const COMMANDS = [
 	{ t: "Undo Last File Change", r: () => send({ type: "undo" }) },
 	{ t: "Change Permission Mode", r: cycleMode },
 	{ t: "New Session (/clear)", r: () => { if (hasModel) { input.value = "/clear"; submit(); } } },
-	{ t: "Sessions…", r: () => $("sessionsBtn").click() },
-	{ t: "Skills & Import…", r: () => $("skillsBtn").click() },
-	{ t: "Customize Theme…", r: () => $("customizeBtn").click() },
+	{ t: "Sessions…", k: "⌘⇧S", r: () => selectSide("sTabSessions") },
+	{ t: "Changes This Session…", k: "⌘⇧D", r: () => selectSide("sTabChanges") },
+	{ t: "Toggle Sidebar", k: "⌘B", r: () => togglePanel("hide-files", "show-files", narrowFiles) },
+	{ t: "Toggle Assistant", k: "⌘⇧A", r: () => togglePanel("hide-agent", "show-agent", narrowAgent) },
+	{ t: "Skills & Import…", r: openSkills },
+	{ t: "Model Training…", r: openTraining },
+	{ t: "Customize Theme…", r: openCustomize },
+	{ t: "Getting Started…", r: openHelp },
+	{ t: "Toggle Sound", r: toggleSound },
 ];
 let palItems = [], palSel = 0;
 function openPalette() { $("paletteInput").value = ""; filterPalette(); $("paletteOverlay").classList.add("show"); setTimeout(() => $("paletteInput").focus(), 0); }
@@ -2312,7 +2945,13 @@ function filterPalette() {
 	const q = $("paletteInput").value.toLowerCase();
 	palItems = COMMANDS.filter((c) => c.t.toLowerCase().includes(q)); palSel = 0;
 	const list = $("paletteList"); list.innerHTML = "";
-	palItems.forEach((c, i) => { const el = document.createElement("div"); el.className = "pal-item" + (i === 0 ? " sel" : ""); el.textContent = c.t; el.onmousedown = (e) => { e.preventDefault(); runPalette(i); }; list.appendChild(el); });
+	palItems.forEach((c, i) => {
+		const el = document.createElement("div"); el.className = "pal-item" + (i === 0 ? " sel" : "");
+		const t = document.createElement("span"); t.className = "lb"; t.textContent = c.t; el.appendChild(t);
+		if (c.k) { const k = document.createElement("span"); k.className = "k"; k.textContent = c.k; el.appendChild(k); }
+		el.onmousedown = (e) => { e.preventDefault(); runPalette(i); };
+		list.appendChild(el);
+	});
 }
 function runPalette(i) { const c = palItems[i]; $("paletteOverlay").classList.remove("show"); if (c) c.r(); }
 function updatePalSel() { [...$("paletteList").children].forEach((el, i) => el.classList.toggle("sel", i === palSel)); const s = $("paletteList").children[palSel]; if (s) s.scrollIntoView({ block: "nearest" }); }
@@ -2359,6 +2998,11 @@ document.addEventListener("keydown", (e) => {
 	if (mod && !e.shiftKey && (e.key === "s" || e.key === "S")) { if (active) { e.preventDefault(); send({ type: "save", path: active, content: files.get(active)?.content ?? code.value }); } }
 	else if (mod && e.shiftKey && (e.key === "P" || e.key === "p")) { e.preventDefault(); openPalette(); }
 	else if (mod && e.shiftKey && (e.key === "F" || e.key === "f")) { e.preventDefault(); showSearchView(true); }
+	else if (mod && e.shiftKey && (e.key === "S" || e.key === "s")) { e.preventDefault(); selectSide("sTabSessions"); }
+	else if (mod && e.shiftKey && (e.key === "D" || e.key === "d")) { e.preventDefault(); selectSide("sTabChanges"); }
+	else if (mod && e.shiftKey && (e.key === "A" || e.key === "a")) { e.preventDefault(); togglePanel("hide-agent", "show-agent", narrowAgent); }
+	else if (mod && !e.shiftKey && (e.key === "b" || e.key === "B")) { e.preventDefault(); togglePanel("hide-files", "show-files", narrowFiles); }
+	else if (mod && !e.shiftKey && (e.key === "j" || e.key === "J")) { e.preventDefault(); toggleDock(dockPanel || "terminal"); }
 	else if (mod && !e.shiftKey && (e.key === "f" || e.key === "F")) { if (active) { e.preventDefault(); openFind(); } }
 	else if (mod && (e.key === "g" || e.key === "G")) { if (active) { e.preventDefault(); goToLinePrompt(); } }
 });

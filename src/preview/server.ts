@@ -133,7 +133,8 @@ const gpuTimer = setInterval(async () => {
 wss.on("connection", (ws) => {
 	const pending = new Map<string, (ok: boolean) => void>();
 	const send = (o: unknown) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(o));
-	const sendStatus = async () => send({ type: "status", ...(await orch.status()) });
+	// recents ride along so the welcome screen has them on first paint, without a second round trip.
+	const sendStatus = async () => send({ type: "status", ...(await orch.status()), recents: recentFolders() });
 
 	// Integrated terminal: a persistent cwd + at most one running child per connection.
 	// user-typed commands run directly (no PTY) — real interactive shells (vim/top) are the node-pty upgrade.
@@ -253,6 +254,13 @@ wss.on("connection", (ws) => {
 
 			case "save":
 				try {
+					// Model-generated code reaches disk through here, not through the tool gate, so plan
+					// mode ("nothing is written") has to be enforced on this path too. A user-initiated
+					// save is still fine — plan mode constrains the agent, not the person typing.
+					if (msg.generated && orch.mode === "plan") {
+						send({ type: "error", message: "Plan mode — generated code was not written to disk." });
+						break;
+					}
 					// Model-generated (streamed) code is checkpointed before the write so Esc-Esc can rewind it.
 					if (msg.generated) await orch.snapshotBeforeWrite(String(msg.path)).catch(() => {});
 					await write(ROOT, String(msg.path), String(msg.content ?? ""));
@@ -265,6 +273,11 @@ wss.on("connection", (ws) => {
 
 			case "set-mode":
 				orch.setMode(msg.mode);
+				await sendStatus();
+				break;
+
+			case "set-online":
+				orch.setOnline(Boolean(msg.online));
 				await sendStatus();
 				break;
 
@@ -283,6 +296,10 @@ wss.on("connection", (ws) => {
 
 			case "sessions":
 				send({ type: "sessions", list: Session.list(ROOT) });
+				break;
+
+			case "changes":
+				send({ type: "changes", list: await orch.changes() });
 				break;
 
 			case "resume-session":
@@ -531,7 +548,10 @@ wss.on("connection", (ws) => {
 // Open the port first, then load the model in the background — a big model can
 // take several seconds and shouldn't delay the server being reachable.
 http.listen(PORT, "127.0.0.1", async () => {
-	console.log(`\n  ▸ Preview ready:  http://localhost:${PORT}`);
+	// 127.0.0.1, not "localhost": they are separate browser origins, so opening the printed URL in
+	// the other spelling than the shell uses (electron/main.ts) shows a factory-fresh app — no
+	// theme, no custom background, no saved preferences.
+	console.log(`\n  ▸ Preview ready:  http://127.0.0.1:${PORT}`);
 	console.log("  Local Language Machine — loading cached model…");
 	const loaded = await orch.autoload().catch((e) => {
 		console.error("  autoload failed:", errMsg(e));

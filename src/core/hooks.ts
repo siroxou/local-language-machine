@@ -37,7 +37,10 @@ export async function runHooks(
 	const list = hooks[event] ?? [];
 	let output = "";
 	for (const h of list) {
-		if (h.matcher && ctx.tool && !ctx.tool.includes(h.matcher)) continue;
+		if (typeof h?.command !== "string") continue; // a malformed entry must not reject and block every tool
+		// `ctx.tool &&` here meant a tool-scoped hook fired on events that carry no tool at all
+		// (SessionStart/Stop) instead of being skipped.
+		if (h.matcher && !(ctx.tool ?? "").includes(h.matcher)) continue;
 		const env = {
 			...process.env,
 			LLM_HOOK_EVENT: event,

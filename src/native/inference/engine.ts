@@ -103,7 +103,10 @@ export class LlamaCppEngine implements InferenceEngine {
 	#llama?: Llama;
 	#model?: LlamaModel;
 	// Context-level load opts, applied in every createContext(). Refreshed on load().
-	#contextOpts: Pick<LoadOptions, "contextSize" | "batchSize" | "threads" | "flashAttention" | "seed"> = { contextSize: "auto" };
+	// `seed` is deliberately NOT in here: it is not a LlamaContextOptions field, so createContext
+	// silently ignores it. It belongs to the per-prompt sampler — see the prompt() call below.
+	#contextOpts: Pick<LoadOptions, "contextSize" | "batchSize" | "threads" | "flashAttention"> = { contextSize: "auto" };
+	#seed?: number;
 	#sampling: SamplingOptions = {};
 	#contextSize?: number;
 	readonly #gpuPref: "auto" | "cuda" | "vulkan" | "metal" | false;
@@ -139,8 +142,8 @@ export class LlamaCppEngine implements InferenceEngine {
 			batchSize: opts.batchSize,
 			threads: opts.threads,
 			flashAttention: opts.flashAttention,
-			seed: opts.seed,
 		};
+		this.#seed = opts.seed;
 	}
 
 	async createSession(opts: { systemPrompt?: string; contextSize?: number } = {}): Promise<ChatSession> {
@@ -159,6 +162,10 @@ export class LlamaCppEngine implements InferenceEngine {
 		const session = new LlamaChatSession({
 			contextSequence: sequence,
 			systemPrompt: opts.systemPrompt,
+			// Our system prompt carries the tool-calling protocol, not just flavour text — on a model
+			// whose chat wrapper reports no system-message support it must still be injected, or the
+			// agent loop has no instructions at all.
+			forceAddSystemPrompt: true,
 		});
 
 		return {
@@ -180,6 +187,7 @@ export class LlamaCppEngine implements InferenceEngine {
 				return session.prompt(text, {
 					functions,
 					onTextChunk: promptOpts.onText,
+					seed: self.#seed, // sampler-level: createContext() has no `seed` and silently drops it
 					temperature: s.temperature,
 					topK: s.topK,
 					topP: s.topP,

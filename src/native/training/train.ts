@@ -79,7 +79,19 @@ export function isTraining(): boolean {
 }
 
 export function stopTraining(): void {
+	// `pending` is the async setup window (venv bootstrap, dataset fetch) before the child exists.
+	// Killing a null child there silently did nothing while the UI reported "Stop requested".
+	stopRequested = true;
 	child?.kill("SIGINT");
+}
+
+/** True once Stop was pressed, until the next task starts. Checked before each managed spawn. */
+let stopRequested = false;
+export function clearStopRequest(): void {
+	stopRequested = false;
+}
+export function isStopRequested(): boolean {
+	return stopRequested;
 }
 
 /**
@@ -89,6 +101,8 @@ export function stopTraining(): void {
  */
 export function runManaged(cmd: string, args: string[], cwd: string, onLine: (line: string) => void): Promise<number> {
 	if (child) throw new Error("Another training/eval task is already active.");
+	// Stop pressed during the setup window: honour it here rather than spawning the work anyway.
+	if (stopRequested) { onLine("■ Stopped before the task started."); return Promise.resolve(1); }
 	return new Promise((resolve) => {
 		const stream = lineStreamer(onLine);
 		const proc = spawn(cmd, args, { cwd, env: process.env });
@@ -103,6 +117,7 @@ export function runManaged(cmd: string, args: string[], cwd: string, onLine: (li
 /** Hold the single-task lock across a multi-step async flow (fuse→convert, eval passes). */
 export async function withBusy<T>(fn: () => Promise<T>): Promise<T> {
 	if (child || pending) throw new Error("Another training/eval task is already active.");
+	stopRequested = false; // a new task clears any Stop left over from the previous one
 	pending = true;
 	try { return await fn(); } finally { pending = false; }
 }
@@ -358,6 +373,7 @@ function buildCommand(cfg: TrainConfig, backend: Backend, runDir: string, python
 export async function startTraining(cfg: TrainConfig, emit: Emit): Promise<void> {
 	if (child || pending) throw new Error("A training run is already active.");
 	if (!cfg.baseModel?.trim()) throw new Error("Pick a base model (a Hugging Face repo id).");
+	stopRequested = false; // a new run clears any Stop left over from the previous one
 	pending = true;
 	try {
 		const backend = pickBackend(cfg.backend);

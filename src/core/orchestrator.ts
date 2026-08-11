@@ -25,12 +25,12 @@ import type { HubFile } from "../native/models/hub.ts";
 import { getTuning, setTuning, type TuningConfig } from "../native/models/config.ts";
 import { buildTools } from "../native/tools/tools.ts";
 import { webTools } from "../native/tools/web.ts";
-import { connectMcpServers } from "../native/mcp/client.ts";
+import { connectMcpServers, type McpClient } from "../native/mcp/client.ts";
 import { runAgentLoop, type LoopEvents, type ToolGate } from "./loop.ts";
-import { loadSettings, permissionDecision, describeAction, type Settings, type PermissionMode } from "./settings.ts";
+import { loadSettings, permissionDecision, describeAction, setUserOnline, type Settings, type PermissionMode } from "./settings.ts";
 import { Session } from "./session.ts";
 import { Checkpoints } from "./checkpoints.ts";
-import { tree, type TreeNode } from "./workspace.ts";
+import { tree, read, type TreeNode } from "./workspace.ts";
 import { loadMemory, initAgentsMd } from "./memory.ts";
 import { needsCompaction, summarizeHistory, spliceSummary, contextReport } from "./context.ts";
 import { discoverSkills, type Skill } from "./skills.ts";
@@ -89,7 +89,8 @@ export class Orchestrator {
 	#skills: Skill[];
 	#agents: AgentDef[];
 	#mcpTools: Record<string, ToolDef> = {};
-	#mcpReady = false;
+	#mcpClients: McpClient[] = [];
+	#mcpKey?: string; // serialized mcpServers config the current clients were started from
 	#sessionStarted = false;
 
 	constructor(
@@ -106,7 +107,7 @@ export class Orchestrator {
 
 	async status(): Promise<{
 		models: ModelStatus[]; loaded?: string; gpu: string; contextWindow?: number; contextUsed?: number; root: string;
-		mode: PermissionMode; online: boolean; sessionId: string; checkpoints: number;
+		mode: PermissionMode; online: boolean; sessionId: string; checkpoints: number; changedFiles: string[];
 		skills: Array<{ name: string; description: string }>;
 	}> {
 		const cached = new Set((await listCached()).map((c) => c.id));
@@ -118,8 +119,24 @@ export class Orchestrator {
 			models, loaded: this.#loadedId, gpu: this.engine.gpu,
 			contextWindow: this.engine.contextSize, contextUsed: this.#chat?.usedTokens?.(), root: this.root,
 			mode: this.mode, online: this.#settings.online, sessionId: this.#store.id, checkpoints: this.#checkpoints.count,
+			changedFiles: this.#checkpoints.changed,
 			skills: this.#skills.map((s) => ({ name: s.name, description: s.description })),
 		};
+	}
+
+	/**
+	 * Every file this session touched, with its contents before the session and on disk now.
+	 * `after: null` means the file is gone; `before: null` means the agent created it.
+	 * Fetched on demand (opening the Changes panel), not on every status tick.
+	 */
+	async changes(): Promise<Array<{ path: string; before: string | null; after: string | null }>> {
+		return Promise.all(
+			this.#checkpoints.changed.map(async (path) => ({
+				path,
+				before: this.#checkpoints.beforeOf(path),
+				after: await read(this.root, path).catch(() => null),
+			})),
+		);
 	}
 
 	/** Download a model into the cache (no-op if already present). */
@@ -220,7 +237,9 @@ export class Orchestrator {
 	async setRoot(newRoot: string): Promise<void> {
 		this.root = newRoot;
 		this.#settings = loadSettings(newRoot);
-		this.mode = this.#settings.permissionMode;
+		// Deliberately NOT resetting this.mode here: the badge is an explicit user choice, and
+		// silently reverting it on Open Folder means the user thinks they are in plan mode while
+		// the newly-opened project's settings decide otherwise.
 		this.#skills = discoverSkills(newRoot);
 		this.#agents = discoverAgents(newRoot);
 		this.#store = Session.create(newRoot);
@@ -268,6 +287,9 @@ export class Orchestrator {
 		}
 
 		this.#store.append({ type: "user", text });
+		// The engine reports no per-turn token count, so the running total is the growth in the
+		// context window across the turn. Compaction makes that negative; addTokens drops those.
+		const tokensBefore = chat.usedTokens?.() ?? 0;
 
 		// Tee tool activity into the transcript while forwarding to the UI.
 		const events: LoopEvents = {
@@ -286,8 +308,12 @@ export class Orchestrator {
 		});
 
 		this.#store.append({ type: "assistant", text: final });
+		this.#store.addTokens((chat.usedTokens?.() ?? 0) - tokensBefore);
 		this.#store.saveHistory(chat.getHistory());
-		if (this.#hasHooks) await runHooks(this.#settings.hooks, "Stop", this.root);
+		if (this.#hasHooks) {
+			const h = await runHooks(this.#settings.hooks, "Stop", this.root);
+			if (h.output) ev.onToken(`\n${h.output}\n`); // same as PostToolUse — a hook's stdout is meant to be seen
+		}
 		if (needsCompaction(chat.getHistory())) { await this.#compact(); ev.onToken("\n🗜️ Compacted earlier context.\n"); }
 		return final;
 	}
@@ -302,8 +328,25 @@ export class Orchestrator {
 		return this.#checkpoints.snapshot(this.root, rel);
 	}
 
+	/**
+	 * Turn the network switch on or off and persist it to the user's settings file. Web tools are
+	 * registered per turn in #buildToolSet, so the change lands on the next message with no restart —
+	 * which is the point: the switch used to be reachable only by hand-editing JSON and relaunching.
+	 */
+	setOnline(online: boolean): void {
+		setUserOnline(online);
+		this.#settings = loadSettings(this.root);
+	}
+
+	get online(): boolean {
+		return this.#settings.online;
+	}
+
 	setMode(mode: PermissionMode): void {
-		this.mode = mode;
+		// Validate at the choke point every caller routes through: the server hands this straight
+		// off the wire, and an unrecognised string would leave the badge showing it while the gate
+		// silently fell through to "ask".
+		if (mode === "manual" || mode === "accept-edits" || mode === "plan" || mode === "auto") this.mode = mode;
 	}
 
 	/** Import skills/agents from a local directory (offline). */
@@ -332,11 +375,21 @@ export class Orchestrator {
 	}
 
 	async #ensureMcp(): Promise<void> {
-		if (this.#mcpReady) return;
-		this.#mcpReady = true;
+		// Latch on the server *config*, not a bare boolean: a plain `if (ready) return` meant the
+		// first project's servers were the only ones ever connected, so Open Folder into a project
+		// with its own mcpServers silently kept the previous project's tools and started none of its own.
+		const key = JSON.stringify(this.#settings.mcpServers ?? {});
+		if (key === this.#mcpKey) return;
+		this.#mcpKey = key;
+		for (const c of this.#mcpClients) {
+			try { c.dispose(); } catch {}
+		}
+		this.#mcpClients = [];
+		this.#mcpTools = {};
 		try {
-			const { tools } = await connectMcpServers(this.#settings.mcpServers);
+			const { tools, clients } = await connectMcpServers(this.#settings.mcpServers);
 			this.#mcpTools = tools;
+			this.#mcpClients = clients;
 		} catch {
 			// MCP is best-effort; a failed server never blocks the session.
 		}
@@ -455,7 +508,10 @@ export class Orchestrator {
 		this.#checkpoints = new Checkpoints(this.#store.dir);
 		await this.#checkpoints.load();
 		const hist = this.#store.loadHistory();
-		if (hist && this.#chat) this.#chat.setHistory(hist);
+		// Keep the CURRENT system prompt and take only the conversation: a saved history carries the
+		// system message that was live when it was written, so replacing wholesale silently reverts
+		// the user's tuning system prompt (and the tool protocol) to whatever it was back then.
+		if (hist && this.#chat) this.#chat.setHistory([...this.#baseHistory, ...hist.filter((h: any) => h.type !== "system")]);
 	}
 }
 

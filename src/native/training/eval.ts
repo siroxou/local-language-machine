@@ -132,6 +132,9 @@ export function runEval(runId: string, emit: Emit): Promise<void> {
 		if (!meta) throw new Error(`Unknown run: ${runId}`);
 		if (!meta.baseModel) throw new Error("This run has no recorded base model — retrain to evaluate.");
 		if (!existsSync(meta.adapterDir)) throw new Error("Adapter not found for this run.");
+		// The scorer is mlx_eval.py, and ensureVenv only installs mlx-lm for the mlx backend
+		// (venv.ts) — on an Unsloth run this would die as a bare ModuleNotFoundError.
+		if (meta.backend !== "mlx") throw new Error("Evaluation currently requires an MLX (Apple Silicon) run; this run used Unsloth.");
 		const python = await ensureVenv(meta.backend, (l) => log(emit, l));
 		const runDir = runDirOf(runId);
 		ensureTestData(runDir);

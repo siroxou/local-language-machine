@@ -1,13 +1,14 @@
 // Local Language Machine — app + project settings.
 //
-// Read from two places and merged (project wins): the user file
-// ~/.local-language-machine/settings.json and the project's ./.claude/settings.json.
-// Reading the project's ./.claude/ directory means an existing config Just Works — no
-// translation. Holds the permission mode, command allow-list, hooks, MCP servers,
-// and the single `online` switch that gates every network feature.
+// Read from two places and merged: the user file ~/.local-language-machine/settings.json and the
+// project's ./.claude/settings.json. Reading the project's ./.claude/ directory means an existing
+// config mostly carries over. The project layer contributes hooks and MCP servers only — it cannot
+// set permissionMode, online or allow, because a repo ships that file to everyone who clones it.
+// Holds the permission mode, command allow-list, hooks, MCP servers, and the `online` switch that
+// gates the agent's network reach (web tools, git skill import) — not the model downloader.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { appHome } from "../native/paths.ts";
 
 export type PermissionMode = "manual" | "accept-edits" | "plan" | "auto";
@@ -23,7 +24,9 @@ export interface McpServerConfig {
 	command?: string; // stdio server executable
 	args?: string[];
 	env?: Record<string, string>;
-	url?: string; // remote (SSE/HTTP) — requires `online`
+	// No `url` field: remote (SSE/HTTP) MCP transport is not implemented. It used to be declared
+	// here and documented as "gated by online", but nothing ever read it — a server configured
+	// with only a url connected to nothing, silently. Declare it again when the transport exists.
 }
 
 export interface Settings {
@@ -40,6 +43,17 @@ export interface Settings {
 const DEFAULTS: Settings = { permissionMode: "manual", allow: [], hooks: {}, mcpServers: {}, online: false };
 
 const userSettingsPath = () => join(appHome(), "settings.json");
+
+/**
+ * Flip the network switch in the user's own settings file, so the choice survives a restart.
+ * Written to the user layer deliberately: the project layer is not allowed to set `online`.
+ */
+export function setUserOnline(online: boolean): void {
+	const path = userSettingsPath();
+	const current = readJson(path);
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, JSON.stringify({ ...current, online }, null, 2));
+}
 const projectSettingsPath = (root: string) => join(root, ".claude", "settings.json");
 
 function readJson(path: string): Partial<Settings> {
@@ -53,13 +67,27 @@ function readJson(path: string): Partial<Settings> {
 
 /** Merge defaults ← user ← project. Arrays concat; object maps shallow-merge. */
 export function loadSettings(root: string): Settings {
-	const layers = [DEFAULTS, readJson(userSettingsPath()), readJson(projectSettingsPath(root))];
+	const project = readJson(projectSettingsPath(root));
+	// A project's ./.claude/settings.json ships inside the repo, so any clone can carry one — it is
+	// data from whoever wrote that repo, not a statement of this user's intent. It may contribute
+	// hooks and MCP servers, but nothing that widens what runs without asking: `allow` skips the
+	// confirm prompt, and permissionMode/online are the user's own safety defaults.
+	delete project.permissionMode;
+	delete project.online;
+	delete project.allow;
+	const layers = [DEFAULTS, readJson(userSettingsPath()), project];
 	const out: Settings = { ...DEFAULTS };
 	for (const l of layers) {
 		if (l.permissionMode) out.permissionMode = l.permissionMode;
 		if (typeof l.online === "boolean") out.online = l.online;
 		if (l.allow) out.allow = [...out.allow, ...l.allow];
-		if (l.hooks) out.hooks = { ...out.hooks, ...l.hooks };
+		// Concat per event, matching `allow` above: a shallow merge silently deleted the user's
+		// global PreToolUse guard the moment a project defined any hook for the same event.
+		if (l.hooks) {
+			const merged: Record<string, HookDef[]> = { ...out.hooks };
+			for (const [event, defs] of Object.entries(l.hooks)) merged[event] = [...(merged[event] ?? []), ...defs];
+			out.hooks = merged;
+		}
 		if (l.mcpServers) out.mcpServers = { ...out.mcpServers, ...l.mcpServers };
 	}
 	return out;
@@ -73,7 +101,9 @@ const READONLY_TOOLS = new Set(["read_file", "list_dir", "grep", "glob", "web_se
 const GIT_READONLY = new Set(["status", "diff", "log", "show", "branch", "remote", "rev-parse", "ls-files"]);
 // commands we always double-check even in auto mode (best-effort; not a security boundary).
 // substring denylist, not a sandbox — the real boundary is resolveInRoot + the confirm gate.
-const DANGER = /\brm\s+-rf?\b|\bmkfs\b|\bdd\b|:\(\)\s*\{|\bshutdown\b|\breboot\b|\bgit\s+push\b|--force\b|\bsudo\b/;
+// `rm -rf` is only one spelling: -fr, -Rf and a bare -f are the same command with the flags
+// reordered, and the guard is worthless if it only catches the tidy one.
+const DANGER = /\brm\s+-[a-z]*[rf]|\bmkfs\b|\bdd\b|:\(\)\s*\{|\bshutdown\b|\breboot\b|\bgit\s+push\b|--force\b|\bsudo\b/i;
 
 export type Decision = "allow" | "ask" | "deny";
 
@@ -87,11 +117,12 @@ export function permissionDecision(
 	if (READONLY_TOOLS.has(tool)) return "allow";
 	if (tool === "git" && GIT_READONLY.has(String((args.args as string[])?.[0] ?? ""))) return "allow";
 
-	// Explicit allow-list: exact tool name, or exact command for run_terminal/git.
 	const cmd = commandOf(tool, args);
-	if (allow.includes(tool) || (cmd && allow.includes(cmd))) return "allow";
 
-	if (mode === "plan") return "deny"; // never mutate in plan mode
+	if (mode === "plan") return "deny"; // never mutate in plan mode — outranks the allow-list
+
+	// Explicit allow-list: exact tool name, or exact command for run_terminal/git.
+	if (allow.includes(tool) || (cmd && allow.includes(cmd))) return "allow";
 	if (mode === "manual") return "ask";
 
 	const dangerous = cmd ? DANGER.test(cmd) : false;

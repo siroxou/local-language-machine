@@ -141,7 +141,9 @@ export interface HfDatasetOpts { config?: string; split?: string; limit?: number
  */
 export async function fetchHfDataset(datasetId: string, opts: HfDatasetOpts, destDir: string, onLine?: (l: string) => void): Promise<{ path: string; rows: number }> {
 	let { config, split } = opts;
-	const limit = Math.min(Math.max(opts.limit ?? 200, 1), 2000);
+	// Default up to the clamp ceiling: the UI exposes no row control, and train.ts warns below
+	// ~1000 rows — a silent 200-row default made that warning unavoidable for every HF dataset.
+	const limit = Math.min(Math.max(opts.limit ?? 2000, 1), 2000);
 	if (!config || !split) {
 		const info = await dsGet(`/splits?dataset=${encodeURIComponent(datasetId)}`);
 		const first = info?.splits?.[0];

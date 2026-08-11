@@ -6,8 +6,8 @@
 // install (keeps the build fully offline). The SDK + remote SSE/HTTP transport is
 // the upgrade if we ever need resources, notifications, or hosted servers.
 //
-// stdio servers are local processes → offline. Remote (url) servers are gated by
-// settings.online in the orchestrator and NOT handled here.
+// stdio servers are local processes, so MCP stays offline by construction. Remote (SSE/HTTP)
+// transport is not implemented at all — see McpServerConfig in core/settings.ts.
 
 import { spawn, type ChildProcess } from "node:child_process";
 import type { ToolDef } from "../inference/engine.ts";
@@ -107,7 +107,12 @@ export async function connectMcpServers(
 	const tools: Record<string, ToolDef> = {};
 	const clients: McpClient[] = [];
 	for (const [name, config] of Object.entries(servers)) {
-		if (!config.command) continue; // remote (url) servers handled elsewhere, only when online
+		if (!config.command) {
+			// Say so rather than skipping in silence: a config with no command connects to nothing,
+			// and the failure was previously indistinguishable from a server that started fine.
+			console.warn(`MCP ${name}: no "command" — only stdio servers are supported, so it was skipped.`);
+			continue;
+		}
 		try {
 			const client = new McpClient(name, config);
 			await client.initialize();
