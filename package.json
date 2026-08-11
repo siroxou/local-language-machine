@@ -1,6 +1,6 @@
 {
   "name": "local-language-machine",
-  "version": "1.0.1",
+  "version": "1.0.4",
   "private": true,
   "description": "All-in-one, fully offline local AI coding — self-contained inference, zero external services.",
   "author": "Siroxou",
