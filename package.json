@@ -1,12 +1,22 @@
 {
   "name": "local-language-machine",
   "version": "1.0.4",
-  "private": true,
-  "description": "All-in-one, fully offline local AI coding — self-contained inference, zero external services.",
+  "description": "All-in-one offline local AI coding — self-contained inference, no account, no API key.",
   "author": "Siroxou",
   "homepage": "https://github.com/siroxou/local-language-machine",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siroxou/local-language-machine.git"
+  },
   "type": "module",
   "main": "dist/electron/main.js",
+  "bin": {
+    "local-language-machine": "bin/local-language-machine.mjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -17,6 +27,7 @@
     "preview": "tsx src/preview/server.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "prepublishOnly": "npm run build",
     "app": "npm run build && electron .",
     "pack": "npm run build && electron-builder --mac --dir",
     "release": "npm run build && electron-builder --mac --publish always"

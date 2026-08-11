@@ -152,6 +152,13 @@ Grab the build for your platform from the [latest release](https://github.com/si
 | Windows | `.exe` installer |
 | Linux | `.AppImage` — `chmod +x` and run |
 
+Or, if you already have Node ≥ 22, skip the installer — this serves the same UI in your browser
+and needs no code signing, so macOS never gets in the way:
+
+```bash
+npx local-language-machine    # the folder you run it in becomes the workspace
+```
+
 Launch it, then load a model from the Assistant panel. The first load downloads the model once
 into `~/.local-language-machine` and caches it there; nothing else touches the network.
 
@@ -161,11 +168,15 @@ The app checks for a newer release on launch and points you at the download page
 
 The build is ad‑hoc signed but not notarized — notarization needs a paid Apple Developer
 account. macOS therefore quarantines it on download and Gatekeeper refuses the first launch.
-Drag the app to **Applications** first, then clear the quarantine flag:
+Press **Done** on that dialog (not “Move to Trash”), drag the app to **Applications**, then
+clear the quarantine flag:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Local Language Machine.app"
 ```
+
+Or skip the installer entirely — `npx local-language-machine` never gets quarantined, because
+the flag is set by the browser that downloads a file, not by npm.
 
 It opens normally from then on. Prefer not to use the terminal? Double‑click the app, dismiss
 the warning, then go to **System Settings → Privacy & Security**, scroll to **Security**, and
@@ -186,7 +197,7 @@ press **Open Anyway** next to the app's name.
 
 ```bash
 npm install     # the inference engine is bundled — no extra services
-npm run preview # serves the UI at http://localhost:7433
+npm run preview # serves the UI at http://127.0.0.1:7433
 ```
 
 Other scripts:
