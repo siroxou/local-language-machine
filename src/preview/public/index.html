@@ -1169,7 +1169,10 @@ const onMsg = (fn) => listeners.push(fn);
 const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
 function connect() {
 	ws = new WebSocket(`${proto}://${location.host}`);
-	ws.onopen = () => { banner.classList.remove("show"); send({ type: "status" }); send({ type: "tree" }); };
+	// tunedFor is cleared so the next status re-fetches the tuning preset: a set-tuning sent while
+	// the socket was down is dropped silently, and the panel would otherwise keep showing — and
+	// later re-send — a value the server never stored.
+	ws.onopen = () => { banner.classList.remove("show"); tunedFor = null; send({ type: "status" }); send({ type: "tree" }); };
 	ws.onclose = () => { banner.classList.add("show"); clearTimeout(reconnect); reconnect = setTimeout(connect, 1400); };
 	ws.onmessage = (e) => { const m = JSON.parse(e.data); listeners.forEach((fn) => fn(m)); };
 }

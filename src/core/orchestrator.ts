@@ -32,7 +32,7 @@ import { Session } from "./session.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { tree, read, type TreeNode } from "./workspace.ts";
 import { loadMemory, initAgentsMd } from "./memory.ts";
-import { needsCompaction, summarizeHistory, spliceSummary, contextReport } from "./context.ts";
+import { needsCompaction, summarizeHistory, spliceSummary, rebaseHistory, contextReport } from "./context.ts";
 import { discoverSkills, type Skill } from "./skills.ts";
 import { discoverAgents, spawnSubagent, type AgentDef } from "./subagent.ts";
 import { runHooks } from "./hooks.ts";
@@ -91,6 +91,8 @@ export class Orchestrator {
 	#mcpTools: Record<string, ToolDef> = {};
 	#mcpClients: McpClient[] = [];
 	#mcpKey?: string; // serialized mcpServers config the current clients were started from
+	#turnActive = false; // a generation is in flight — the context must not be disposed
+	#systemPromptDirty = false; // a system-prompt edit arrived mid-turn; apply once the turn ends
 	#sessionStarted = false;
 
 	constructor(
@@ -202,7 +204,27 @@ export class Orchestrator {
 	async applyLiveTuning(cfg: TuningConfig): Promise<void> {
 		this.engine.setSampling(samplingOf(cfg.inference));
 		const next = cfg.inference?.systemPrompt ?? "";
-		if (this.#chat && next !== this.#appliedSystemPrompt) await this.#startSession();
+		if (!this.#chat || next === this.#appliedSystemPrompt) return;
+		// #startSession disposes the context. Doing that under a running generation kills the turn
+		// mid-stream — and the tuning panel debounces to 250ms, so it fires while the model is still
+		// answering. Defer to the end of the turn instead; chat() picks it up.
+		if (this.#turnActive) {
+			this.#systemPromptDirty = true;
+			return;
+		}
+		await this.#restartKeepingHistory();
+	}
+
+	/**
+	 * Rebuild the session so a new system prompt takes effect, carrying the conversation across.
+	 * The transcript stays on screen either way, so dropping history here makes the model answer the
+	 * next message as if the discussion never happened — with nothing in the UI saying so.
+	 * Only for a system-prompt edit: load() starts a genuinely new conversation and must not carry.
+	 */
+	async #restartKeepingHistory(): Promise<void> {
+		const previous = this.#chat?.getHistory() ?? [];
+		await this.#startSession();
+		if (this.#chat) this.#chat.setHistory(rebaseHistory(this.#baseHistory, previous));
 	}
 
 	/** Persist the loaded model's preset and apply the live (Inference) parts immediately. */
@@ -298,14 +320,20 @@ export class Orchestrator {
 			onToolResult: (n, r) => { this.#store.append({ type: "tool-result", name: n, data: r }); ev.onToolResult(n, r); },
 		};
 
-		const final = await runAgentLoop({
-			session: chat,
-			tools: this.#buildToolSet(),
-			input: text,
-			events,
-			root: this.root,
-			gate: this.#buildGate(ev),
-		});
+		this.#turnActive = true;
+		let final: string;
+		try {
+			final = await runAgentLoop({
+				session: chat,
+				tools: this.#buildToolSet(),
+				input: text,
+				events,
+				root: this.root,
+				gate: this.#buildGate(ev),
+			});
+		} finally {
+			this.#turnActive = false;
+		}
 
 		this.#store.append({ type: "assistant", text: final });
 		this.#store.addTokens((chat.usedTokens?.() ?? 0) - tokensBefore);
@@ -315,6 +343,12 @@ export class Orchestrator {
 			if (h.output) ev.onToken(`\n${h.output}\n`); // same as PostToolUse — a hook's stdout is meant to be seen
 		}
 		if (needsCompaction(chat.getHistory())) { await this.#compact(); ev.onToken("\n🗜️ Compacted earlier context.\n"); }
+		// Everything above still reads the outgoing session, so a deferred system-prompt edit lands
+		// here — last, once nothing else needs the old context.
+		if (this.#systemPromptDirty) {
+			this.#systemPromptDirty = false;
+			await this.#restartKeepingHistory();
+		}
 		return final;
 	}
 
@@ -457,10 +491,11 @@ export class Orchestrator {
 				}
 			},
 			after: async (tool, args) => {
-				if (this.#hasHooks) {
-					const h = await runHooks(this.#settings.hooks, "PostToolUse", this.root, { tool, args });
-					if (h.output) ev.onToken(`\n${h.output}\n`);
-				}
+				if (!this.#hasHooks) return;
+				const h = await runHooks(this.#settings.hooks, "PostToolUse", this.root, { tool, args });
+				if (!h.output) return;
+				ev.onToken(`\n${h.output}\n`);
+				return h.output; // also goes to the model — see ToolGate.after
 			},
 		};
 	}
@@ -508,10 +543,7 @@ export class Orchestrator {
 		this.#checkpoints = new Checkpoints(this.#store.dir);
 		await this.#checkpoints.load();
 		const hist = this.#store.loadHistory();
-		// Keep the CURRENT system prompt and take only the conversation: a saved history carries the
-		// system message that was live when it was written, so replacing wholesale silently reverts
-		// the user's tuning system prompt (and the tool protocol) to whatever it was back then.
-		if (hist && this.#chat) this.#chat.setHistory([...this.#baseHistory, ...hist.filter((h: any) => h.type !== "system")]);
+		if (hist && this.#chat) this.#chat.setHistory(rebaseHistory(this.#baseHistory, hist));
 	}
 }
 

@@ -2,7 +2,7 @@
 // prompt + recent turns while replacing the middle with a summary.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { historyChars, estimateTokens, spliceSummary, needsCompaction, COMPACT_AT_CHARS } from "./context.ts";
+import { historyChars, estimateTokens, spliceSummary, rebaseHistory, needsCompaction, COMPACT_AT_CHARS } from "./context.ts";
 
 const hist = [
 	{ type: "system", text: "sys" },
@@ -12,6 +12,23 @@ const hist = [
 	{ type: "model", response: ["m2"] },
 	{ type: "user", text: "u3" },
 ] as any;
+
+test("rebaseHistory keeps the live system prompt and drops the stale one", () => {
+	// The bug this guards: a saved session carries the system message that was in effect when it
+	// was written, so replaying it wholesale silently reverted the user's tuning system prompt.
+	const base = [{ type: "system", text: "NEW prompt" }] as any;
+	const out = rebaseHistory(base, hist);
+	assert.deepEqual(out.filter((h: any) => h.type === "system"), [{ type: "system", text: "NEW prompt" }]);
+	assert.equal(out.length, 6); // 1 system + the 5 non-system items
+	assert.deepEqual(out[1], { type: "user", text: "u1" }); // conversation order preserved
+});
+
+test("rebaseHistory on an empty conversation is just the base, and never aliases it", () => {
+	const base = [{ type: "system", text: "sys" }] as any;
+	const out = rebaseHistory(base, [{ type: "system", text: "old" }] as any);
+	assert.deepEqual(out, base);
+	assert.notEqual(out, base); // a copy — callers hand this straight to setHistory
+});
 
 test("historyChars sums text across system/user/model items", () => {
 	assert.equal(historyChars(hist), 13); // 3+2+2+2+2+2

@@ -57,6 +57,19 @@ function capItem(item: ChatHistoryItem): ChatHistoryItem {
 	return { ...item, text: `${text.slice(0, KEEP_ITEM_CHARS)}\n…[${text.length - KEEP_ITEM_CHARS} chars trimmed during compaction]` } as ChatHistoryItem;
 }
 
+/**
+ * Rebase a conversation onto the CURRENT system prompt: keep `base` (the live session's system
+ * message) and take only the non-system items from `previous`.
+ *
+ * Both callers otherwise reinstate a stale system message and silently revert the user's standing
+ * instructions: resuming a session replays history saved when a different prompt was in effect, and
+ * the restart that a system-prompt edit triggers would carry the prompt it just replaced.
+ */
+export function rebaseHistory(base: ChatHistoryItem[], previous: ChatHistoryItem[]): ChatHistoryItem[] {
+	const conversation = previous.filter((h: any) => h.type !== "system");
+	return conversation.length ? [...base, ...conversation] : [...base];
+}
+
 /** Replace the middle of history with a summary note, keeping system items and the last few turns. */
 export function spliceSummary(history: ChatHistoryItem[], summary: string, keepRecent = KEEP_RECENT): ChatHistoryItem[] {
 	const system = history.filter((h: any) => h.type === "system");

@@ -39,7 +39,9 @@ export type ToolDecision = { block: true; result: unknown } | void;
  */
 export interface ToolGate {
 	before?(tool: string, args: Record<string, unknown>): Promise<ToolDecision> | ToolDecision;
-	after?(tool: string, args: Record<string, unknown>, result: unknown): Promise<void> | void;
+	/** Returned text is appended to the next model input — a PostToolUse hook's stdout is meant to
+	 *  reach the model, not just the transcript (a formatter reporting what it changed, say). */
+	after?(tool: string, args: Record<string, unknown>, result: unknown): Promise<string | void> | string | void;
 }
 
 export interface LoopOptions {
@@ -84,11 +86,12 @@ export async function runAgentLoop(opts: LoopOptions): Promise<string> {
 				result = { error: errMsg(e) };
 			}
 		}
-		await gate?.after?.(call.tool, call.arguments, result);
+		const note = await gate?.after?.(call.tool, call.arguments, result);
 		events.onToolResult(call.tool, result);
 
 		input =
 			`Result of ${call.tool}: ${JSON.stringify(result)}\n\n` +
+			(note ? `[hook]: ${note}\n\n` : "") +
 			`Use this to answer the user's request. Call another tool if needed, otherwise reply in plain text.`;
 	}
 	return final;
