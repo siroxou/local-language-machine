@@ -3,6 +3,7 @@
   "version": "1.0.4",
   "description": "All-in-one offline local AI coding — self-contained inference, no account, no API key.",
   "author": "Siroxou",
+  "license": "MIT",
   "homepage": "https://github.com/siroxou/local-language-machine",
   "repository": {
     "type": "git",

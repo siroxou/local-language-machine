@@ -426,5 +426,4 @@ bench/
 
 ## License
 
-No license has been chosen yet — all rights reserved by default. Add a `LICENSE` file if you want
-others to reuse the code.
+[MIT](LICENSE) — use it, fork it, ship it.
