@@ -156,7 +156,8 @@ Or, if you already have Node ≥ 22, skip the installer — this serves the same
 and needs no code signing, so macOS never gets in the way:
 
 ```bash
-npx local-language-machine    # the folder you run it in becomes the workspace
+git clone https://github.com/siroxou/local-language-machine.git
+cd local-language-machine && npm install && npm run preview
 ```
 
 Launch it, then load a model from the Assistant panel. The first load downloads the model once
@@ -175,8 +176,8 @@ clear the quarantine flag:
 xattr -dr com.apple.quarantine "/Applications/Local Language Machine.app"
 ```
 
-Or skip the installer entirely — `npx local-language-machine` never gets quarantined, because
-the flag is set by the browser that downloads a file, not by npm.
+Or skip the installer entirely and [run from source](#run-from-source) — a `git clone` is never
+quarantined, because the flag is set by the browser that downloads a file, not by git or npm.
 
 It opens normally from then on. Prefer not to use the terminal? Double‑click the app, dismiss
 the warning, then go to **System Settings → Privacy & Security**, scroll to **Security**, and
