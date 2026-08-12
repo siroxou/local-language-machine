@@ -24,26 +24,27 @@
 		   whichever base it's given, so both directions stay self-consistent. ————— */
 		/* ink — warm charcoal on paper. These literals are exactly what derived() computes for the
 		   Daylight base, so re-picking Daylight in Customize is a no-op rather than a small shift. */
-		--tx: #2e2b22; --tx-dim: #67645b; --tx-faint: #918e84;
-		--ac: #5f7a4e; --ac-soft: #5f7a4e2e; --ac-fg: #fbf9f3; /* sage primary — light ink on top */
-		--warn: #694b1b; /* in-progress states */
-		--ok: #3d5331; --err: #875b51; /* success / failure text on a panel */
-		--sel: #5f7a4e40; /* editor selection */
+		--tx: #211c15; --tx-dim: #3d3830; --tx-faint: #6a665c;
+		--ac: #4c6a33; --ac-soft: #4c6a332e; --ac-fg: #fbf9f3; /* sage primary — light ink on top */
+		--ac-text: #4c6a33; /* the accent where it is rendered as text rather than as a fill */
+		--warn: #aa4900; /* in-progress states */
+		--ok: #014723; --err: #9d5348; /* success / failure text on a panel */
+		--sel: #4c6a3340; /* editor selection */
 		/* Logo ramp. These are the fallbacks for first paint; applyLogoTheme() overwrites them
 		   with values derived from the live --ac / --s-nu, so the mark follows the theme. */
-		--logo-hi: #82996f; --logo-mid: #5f7a4e; --logo-lo: #4a5f3d;
-		--logo-ink: #1b2216; --logo-line: #86a077; --logo-bar: #75521a;
+		--logo-hi: #6d8f4a; --logo-mid: #4c6a33; --logo-lo: #3b5228;
+		--logo-ink: #171d10; --logo-line: #7d9e63; --logo-bar: #aa4900;
 		/* surfaces — flat, opaque, one step apart. No blur, no glow, no gradients. */
-		--bg: #eceadf;      /* page */
-		--card: #f8f6ef;    /* panels, dialogs, menus */
-		--card-2: #eae8e1;  /* inputs, hover fills */
-		--card-3: #dcdad2;  /* pressed / selected fills */
-		--brd: #c8c5be; --brd-soft: #dad8d0;
-		/* syntax — sage / ochre / clay, darkened for a light surface */
-		--s-cm: #8b8577; --s-kw: #8a6d20; --s-st: #4a6b3d; --s-nu: #8a5f1e;
-		--s-fn: #4a6b56; --s-pn: #636057; --s-id: #2e2b22;
+		--bg: #ddd9cc;      /* page */
+		--card: #f9f7f1;    /* panels, dialogs, menus */
+		--card-2: #eae8e2;  /* inputs, hover fills */
+		--card-3: #dbd8d2;  /* pressed / selected fills */
+		--brd: #a39f99; --brd-soft: #c9c7c1;
+		/* syntax — spread across the blue/amber axis so the five stay apart for a dichromat */
+		--s-cm: #816d33; --s-kw: #740166; --s-st: #014723; --s-nu: #aa4900;
+		--s-fn: #1f69ac; --s-pn: #4a463d; --s-id: #211c15;
 		/* Scrim over the model-picker animation; recomputed per theme (see derived()). */
-		--mp-scrim: linear-gradient(96deg, #f8f6effc 0%, #f8f6eff7 46%, #f8f6efea 100%);
+		--mp-scrim: linear-gradient(96deg, #f9f7f1fc 0%, #f9f7f1f7 46%, #f9f7f1ea 100%);
 
 		/* ————— motion —————
 		   Two curves, not twelve. --ease is critically damped: it arrives and stops, no
@@ -201,7 +202,7 @@
 		cursor: pointer; white-space: nowrap; transition: .2s cubic-bezier(.2,.8,.2,1); }
 	.tb-mode:hover { border-color: var(--brd); }
 	.tb-mode:active { transform: scale(.97); }
-	.tb-mode .gem { color: var(--ac); font-size: 10px; }
+	.tb-mode .gem { color: var(--ac-text); font-size: 10px; }
 	.tb-mode[data-mode="plan"] .gem { color: var(--warn); }
 	.tb-mode[data-mode="auto"] .gem { color: var(--err); }
 	/* Checkpoint count used to live inside a title="" tooltip, which is to say nowhere. */
@@ -260,7 +261,7 @@
 	.side-tab:hover { color: var(--tx); background: var(--card-2); }
 	.side-tab[aria-selected="true"] { color: var(--tx); background: var(--card-3); }
 	.side-tab .n { font-size: 10.5px; color: var(--tx-faint); font-variant-numeric: tabular-nums; }
-	.side-tab[aria-selected="true"] .n { color: var(--ac); }
+	.side-tab[aria-selected="true"] .n { color: var(--ac-text); }
 	.side-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 	.side-view[hidden] { display: none; }
 	.side-filter { flex: 0 0 auto; padding: var(--s1) var(--s2) var(--s-half); }
@@ -279,7 +280,7 @@
 	.sess:hover { background: var(--card-2); }
 	.sess.active { background: var(--ac-soft); }
 	.sess .t { font-size: 12.5px; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.sess.active .t::after { content: " ·  now"; color: var(--ac); font-size: 11px; }
+	.sess.active .t::after { content: " ·  now"; color: var(--ac-text); font-size: 11px; }
 	.sess .m { font-size: 11px; color: var(--tx-faint); margin-top: 3px; font-variant-numeric: tabular-nums; }
 
 	/* ——— changes rows ——— */
@@ -350,7 +351,7 @@
 		text-transform: uppercase; color: var(--tx-faint); }
 	.wel h2:not(:first-child) { margin-top: var(--s3); }
 	.wel-a { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit;
-		font-size: 13.5px; color: var(--ac); background: transparent; border: 0; border-radius: var(--r-sm);
+		font-size: 13.5px; color: var(--ac-text); background: transparent; border: 0; border-radius: var(--r-sm);
 		padding: 7px 9px; cursor: pointer; transition: .14s; }
 	.wel-a:hover { background: var(--card-2); }
 	.wel-a .ic { flex: 0 0 18px; display: grid; place-items: center; color: var(--tx-faint); font-size: 13px; }
@@ -358,7 +359,7 @@
 	.wel-r { display: flex; align-items: baseline; gap: 9px; width: 100%; text-align: left; font: inherit;
 		background: transparent; border: 0; border-radius: var(--r-sm); padding: 6px 9px; cursor: pointer; transition: .14s; }
 	.wel-r:hover { background: var(--card-2); }
-	.wel-r .nm { font-size: 13.5px; color: var(--ac); flex: 0 0 auto; }
+	.wel-r .nm { font-size: 13.5px; color: var(--ac-text); flex: 0 0 auto; }
 	.wel-r .pt { font-size: 11.5px; color: var(--tx-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.wel-w { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; font: inherit;
 		background: var(--card-2); border: 1px solid var(--brd-soft); border-radius: var(--r-sm);
@@ -442,7 +443,7 @@
 	.mp-item .own { font-size: 11px; color: var(--tx-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.mp-item .st { flex: 0 0 auto; font-family: var(--mono); font-size: 10px; color: var(--tx-faint); text-align: right; }
 	.mp-item.on .nm { font-weight: 700; }
-	.mp-item.on .st { color: var(--ac); }
+	.mp-item.on .st { color: var(--ac-text); }
 	.mp-empty { padding: var(--s3) var(--s2); text-align: center; font-size: 12.5px; color: var(--tx-faint); }
 	.mp-add { flex: 0 0 auto; font: inherit; font-size: 12px; color: var(--tx-dim); text-align: left;
 		background: transparent; border: 0; border-top: 1px solid var(--brd); padding: 10px var(--s2); cursor: pointer; transition: .15s; }
@@ -482,7 +483,7 @@
 		word-wrap: break-word; max-width: 92%; }
 	.msg.user .bubble { background: var(--ac); color: var(--ac-fg); border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md); }
 	.msg.assistant .bubble { background: var(--card-2); border: 1px solid var(--brd-soft); }
-	.cursor::after { content: "▋"; color: var(--ac); animation: blink 1.1s steps(2) infinite; margin-left: 1px; }
+	.cursor::after { content: "▋"; color: var(--ac-text); animation: blink 1.1s steps(2) infinite; margin-left: 1px; }
 	@keyframes blink { 50% { opacity: 0; } }
 	/* Was a hardcoded sage — it stayed sage when you picked a blue theme. */
 	.tool { border: 1px solid color-mix(in srgb, var(--ac) 34%, transparent);
@@ -772,7 +773,7 @@
 	.hf-repo:hover { border-color: var(--brd); background: var(--card-2); }
 	.hf-repo-id { font-family: var(--mono); font-size: 12.5px; color: var(--tx); word-break: break-all; }
 	.hf-repo-meta { font-size: 11px; color: var(--tx-dim); margin-top: 2px; }
-	.hf-back { font-size: 12px; color: var(--ac); cursor: pointer; padding: 4px 2px; align-self: flex-start; }
+	.hf-back { font-size: 12px; color: var(--ac-text); cursor: pointer; padding: 4px 2px; align-self: flex-start; }
 	.hf-file { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--card-2); border: 1px solid var(--brd-soft); }
 	.hf-file-name { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--tx); word-break: break-all; }
 	.hf-file-size { font-size: 11.5px; color: var(--tx-dim); white-space: nowrap; }
@@ -893,7 +894,15 @@
 		.menu, .ctx, .findbar, .mp-pop, .palette, .dialog, .settings {
 			background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--tx-dim);
 		}
-		:root { --tx-dim: var(--tx); --tx-faint: color-mix(in srgb, var(--tx) 72%, var(--bg)); --brd-soft: var(--brd); }
+		:root {
+			--tx-dim: var(--tx);
+			--tx-faint: color-mix(in srgb, var(--tx) 78%, var(--bg));
+			/* Panel and control edges go from quiet to a real 3:1+ boundary. This is not the
+			   default because a hard rule around every panel and input is precisely the
+			   flatness this design trades on — the people who need the edge get it here. */
+			--brd: color-mix(in srgb, var(--card) 35%, var(--tx));
+			--brd-soft: color-mix(in srgb, var(--card) 45%, var(--tx));
+		}
 		:focus-visible { outline-width: 3px; }
 	}
 
@@ -1162,9 +1171,13 @@
 			<div class="settings-body">
 				<div class="settings-main">
 					<section class="tab-panel" data-tab="theme">
-						<div class="sub">Pick a preset, or tune each color by hand.</div>
+						<div class="sub">Pick a preset, or tune each color by hand. Presets follow your system’s light/dark setting until you choose one.</div>
 						<div class="preset-row" id="presets"></div>
 						<div class="color-grid" id="colorGrid"></div>
+						<!-- The clamp changes what you picked, so it has to say so — a swatch that
+						     silently renders as a different colour than the one you chose is worse
+						     than the unreadable colour it was protecting you from. -->
+						<div class="tune-hint" style="margin-top:var(--s1)">A color too close to the panel behind it is darkened or lightened until it stays readable, and the swatch updates to the value you actually get.</div>
 						<div class="theme-status" id="themeStatus"></div>
 					</section>
 					<section class="tab-panel" data-tab="background" hidden>
@@ -1262,7 +1275,7 @@
 						<div class="train-log mono" id="trainLog"></div>
 					</section>
 					<section class="train-panel" data-gtab="runs" hidden>
-						<div class="sub">Past training runs. <button id="runsRefresh" class="tune-hint" style="background:none;border:0;color:var(--ac);cursor:pointer">↻ Refresh</button></div>
+						<div class="sub">Past training runs. <button id="runsRefresh" class="tune-hint" style="background:none;border:0;color:var(--ac-text);cursor:pointer">↻ Refresh</button></div>
 						<div id="trainRuns"></div>
 					</section>
 					<section class="train-panel" data-gtab="evaluate" hidden>
@@ -2123,14 +2136,24 @@ function aiState(s) {
 }
 
 // ————— theming: presets + local AI generation —————
-// Earth-tone family. PRESETS[0] mirrors the :root defaults exactly, so "Daylight" == untouched.
+// Two light, four dark — the old set was one light and five dark, which is a single
+// lighting situation served five times. Six distinct hue families: warm paper, cool
+// neutral, olive, neutral grey, blue-slate, umber. Every value below was chosen against
+// two measured gates rather than by eye: WCAG 4.5:1 on the panel for every role that
+// renders as text, and >=22 CIE-Lab dE between any two syntax colours under simulated
+// deuteranopia AND protanopia. The old set failed both — tx-faint and comments were under
+// 4.5 in all six, and the syntax hues collapsed to as little as 2.6 dE for a dichromat.
+// PRESETS[0] mirrors the :root defaults exactly, so "Daylight" == untouched; scripts/
+// regenerate those literals rather than hand-mixing fifteen colours (see rootgen).
+// PRESETS[0] is also the light default and PRESETS[2] the first dark, which is what
+// osPreset() picks up from prefers-color-scheme.
 const PRESETS = [
-	{ name: "Daylight", card: "#f8f6ef", bg: "#eceadf", text: "#2e2b22", accent: "#5f7a4e", keyword: "#8a6d20", string: "#4a6b3d", number: "#8a5f1e", func: "#4a6b56", comment: "#8b8577" },
-	{ name: "Sagebrush", card: "#413c33", bg: "#3a3529", text: "#f0ebdd", accent: "#8a9f7b", keyword: "#a18f5c", string: "#9db18c", number: "#c6ad72", func: "#8a9f7b", comment: "#7e7768" },
-	{ name: "Moss", card: "#2b3327", bg: "#22291f", text: "#e9efe0", accent: "#9db18c", keyword: "#c6ad72", string: "#b6c9a4", number: "#d3bb85", func: "#7fae86", comment: "#6e7a66" },
-	{ name: "Clay", card: "#3a2d26", bg: "#2e241f", text: "#f4e7dd", accent: "#c08a72", keyword: "#b5766a", string: "#cba887", number: "#d8b070", func: "#a89a6d", comment: "#7f6e62" },
-	{ name: "Ash", card: "#302f2b", bg: "#262623", text: "#eceae2", accent: "#a8a595", keyword: "#bfb59a", string: "#a9b3a2", number: "#cbbf9c", func: "#9aa892", comment: "#75736a" },
-	{ name: "Ochre", card: "#3f3625", bg: "#332c1d", text: "#f5ecd8", accent: "#c6a24f", keyword: "#d1a75a", string: "#b7bf80", number: "#e0c274", func: "#a1b07a", comment: "#7f7458" },
+	{ name: "Daylight", card: "#f9f7f1", bg: "#ddd9cc", text: "#211c15", accent: "#4c6a33", keyword: "#740166", string: "#014723", number: "#aa4900", func: "#1f69ac", comment: "#816d33" },
+	{ name: "Chalk", card: "#fefeff", bg: "#dcdde0", text: "#030508", accent: "#1d5296", keyword: "#824cac", string: "#0f581f", number: "#9c3d03", func: "#14433c", comment: "#93696d" },
+	{ name: "Sagebrush", card: "#272e1d", bg: "#202617", text: "#f3f6eb", accent: "#9bc086", keyword: "#eea0a2", string: "#b0ef85", number: "#f8a235", func: "#90c5fd", comment: "#a1954d" },
+	{ name: "Ash", card: "#252523", bg: "#1c1c1b", text: "#e9e8e4", accent: "#a3b394", keyword: "#e295a4", string: "#abc670", number: "#e8b55e", func: "#81deff", comment: "#988c6a" },
+	{ name: "Slate", card: "#222935", bg: "#191f28", text: "#d7dee9", accent: "#7ba5d1", keyword: "#d998d5", string: "#7baa6d", number: "#f1b46c", func: "#b2e0ff", comment: "#7999a4" },
+	{ name: "Ember", card: "#382820", bg: "#2c1e18", text: "#fbf3ea", accent: "#e2914f", keyword: "#f8a2a2", string: "#baf38a", number: "#ffd447", func: "#70dff5", comment: "#a09552" },
 ];
 const VAR_MAP = { bg: "--bg", card: "--card", text: "--tx", accent: "--ac", keyword: "--s-kw", string: "--s-st", number: "--s-nu", func: "--s-fn", comment: "--s-cm" };
 
@@ -2180,6 +2203,30 @@ function applyLogoTheme() {
 }
 const isColor = (v) => typeof v === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$|^(rgb|hsl)a?\(/i.test(v.trim());
 const lum = (h) => { const [r, g, b] = hex2rgb(h); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+// WCAG relative luminance — gamma-corrected, unlike lum() above, which is a cheap
+// approximation and stays that way because it only ever answers "light or dark?".
+const relLum = (h) => {
+	const c = hex2rgb(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+	return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrastRatio = (a, b) => {
+	const x = relLum(a), y = relLum(b);
+	return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+// Walk a colour toward whichever pole its background is not, by bisection, until it
+// clears `min`. Hue survives — only lightness moves — and a colour that already passes
+// comes back untouched, which is what makes it safe to apply on every re-derive.
+function ensureContrast(fg, bg, min) {
+	if (contrastRatio(fg, bg) >= min) return fg;
+	const pole = relLum(bg) > 0.4 ? "#000000" : "#ffffff";
+	if (contrastRatio(pole, bg) < min) return pole; // target unreachable — go as far as it goes
+	let lo = 0, hi = 1;
+	for (let i = 0; i < 14; i++) {
+		const m = (lo + hi) / 2;
+		if (contrastRatio(mix(fg, pole, m), bg) >= min) hi = m; else lo = m;
+	}
+	return mix(fg, pole, hi);
+}
 
 // A preset only carries nine roles. Every other colour — hover fills, borders, dimmed ink, success
 // and failure — was hardcoded for a dark surface, which is precisely why a light theme could not be
@@ -2187,29 +2234,48 @@ const lum = (h) => { const [r, g, b] = hex2rgb(h); return (0.2126 * r + 0.7152 *
 // cream. Derive them from the base instead and both directions come out self-consistent, whether
 // the base arrives from a preset or from a hand-picked colour.
 const DERIVED = ["--card-2", "--card-3", "--brd", "--brd-soft", "--tx-dim", "--tx-faint", "--s-pn", "--s-id",
-	"--ac-fg", "--ac-soft", "--sel", "--warn", "--ok", "--err", "--mp-scrim",
+	"--ac-fg", "--ac-text", "--ac-soft", "--sel", "--warn", "--ok", "--err", "--mp-scrim",
 	"--shadow-1", "--shadow-2", "--scrim"];
 function derived(t) {
 	const card = t.card, bg = t.bg, tx = t.text, ac = t.accent;
 	// Mixing a surface toward the *text* colour lightens it on a dark theme and darkens it on a
 	// light one, so one ratio gives the right hover/pressed step in both.
 	const onLight = lum(bg) > 0.5;
-	const readable = (c) => (onLight ? mix(c, "#1d1b15", 0.3) : c);
+	// Anything that renders as text gets clamped against the panel it sits on. Measured
+	// before this existed, all six presets failed: --tx-faint was under 4.5:1 in every
+	// one of them, comments bottomed out at 2.46, and --err — the colour a deleted diff
+	// line is drawn in — failed in five. Clamping here rather than in the preset values
+	// is the point: a hand-picked colour from the Theme tab is now safe too.
+	const T = (c, min = 4.5) => ensureContrast(c, card, min);
 	return {
 		"--card-2": mix(card, tx, 0.07),
 		"--card-3": mix(card, tx, 0.14),
-		"--brd": mix(card, tx, 0.24),
-		"--brd-soft": mix(card, tx, 0.15),
-		"--tx-dim": mix(tx, bg, 0.3),
-		"--tx-faint": mix(tx, bg, 0.52),
-		"--s-pn": mix(tx, bg, 0.28),
+		// These ratios were the real defect, not the preset hexes. At 0.52 no palette can
+		// reach 4.5:1 for --tx-faint — the clamp above was silently doing all the work and
+		// washing the hue toward white. At 0.39 every preset clears it natively with
+		// headroom, and pulling --tx-dim back to 0.15 keeps the three ink levels as far
+		// apart as they were before. Borders at 0.24 measured 1.66-2.11, i.e. an edge you
+		// cannot see; 0.40 gives 2.46-3.36.
+		"--brd": ensureContrast(mix(card, tx, 0.40), card, 2.2),
+		"--brd-soft": mix(card, tx, 0.22),
+		"--tx-dim": T(mix(tx, bg, 0.15)),
+		"--tx-faint": T(mix(tx, bg, 0.39)),
+		"--s-pn": T(mix(tx, bg, 0.22)),
 		"--s-id": tx,
-		"--ac-fg": lum(ac) > 0.55 ? "#1d1b15" : "#fbf9f3",
+		// Syntax colours arrive straight from the preset, so they are clamped here too —
+		// VAR_MAP writes them raw and currentTheme() reads them back, and ensureContrast
+		// is a no-op on a value that already passes, so the round trip is stable.
+		"--s-kw": T(t.keyword), "--s-st": T(t.string), "--s-nu": T(t.number),
+		"--s-fn": T(t.func), "--s-cm": T(t.comment),
+		// The accent leads a double life: a fill under button text, and link-coloured
+		// text on a panel. One value cannot always satisfy both, so text gets its own.
+		"--ac-fg": ensureContrast(lum(ac) > 0.55 ? "#1d1b15" : "#fbf9f3", ac, 4.5),
+		"--ac-text": T(ac),
 		"--ac-soft": ac + "2e",
 		"--sel": ac + "40",
-		"--warn": readable(t.number),
-		"--ok": readable(t.string),
-		"--err": readable("#b5766a"),
+		"--warn": T(t.number),
+		"--ok": T(t.string),
+		"--err": T(onLight ? "#9d5348" : "#e0897b"),
 		// The picker's animation is drawn in light strokes, so it reads as a glow over a dark panel
 		// and as grey banding over a pale one. Hold more of it back on a light theme.
 		"--mp-scrim": onLight
@@ -2236,10 +2302,19 @@ function applyTheme(theme, persist = true) {
 	applyLogoTheme();
 	if (persist) { try { localStorage.setItem("llm-theme-v2", JSON.stringify(theme)); } catch {} }
 }
+// ————— following the OS —————
+// Nothing here used to read prefers-color-scheme at all: a first run on a machine set to
+// dark opened bright cream. Follow the OS until the user picks a theme themselves — an
+// explicit choice outranks an inferred one, and it keeps outranking it after an OS flip.
+// The light/dark split is read off the preset's own background rather than stored
+// alongside it, so the two can never disagree.
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+const osPreset = () => PRESETS.find((p) => (lum(p.bg) > 0.5) !== prefersDark.matches) || PRESETS[0];
+const userPickedTheme = () => { try { return !!localStorage.getItem("llm-theme-v2"); } catch { return false; } };
 function resetTheme() {
 	[...Object.values(VAR_MAP), ...DERIVED].forEach((v) => document.documentElement.style.removeProperty(v));
 	try { localStorage.removeItem("llm-theme-v2"); } catch {}
-	applyLogoTheme();
+	applyTheme(osPreset(), false); // back to following the OS, not pinned to the light default
 }
 function renderPresets() {
 	const host = $("presets"); host.innerHTML = "";
@@ -2333,7 +2408,13 @@ $("themeReset").onclick = () => {
 	$("themeStatus").textContent = "Reset to default.";
 };
 $("themeOverlay").addEventListener("click", (e) => { if (e.target.id === "themeOverlay") $("themeOverlay").classList.remove("show"); });
-try { const saved = localStorage.getItem("llm-theme-v2"); if (saved) applyTheme(JSON.parse(saved), false); } catch {}
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("llm-theme-v2"); } catch {}
+if (savedTheme) { try { applyTheme(JSON.parse(savedTheme), false); } catch {} }
+else {
+	applyTheme(osPreset(), false);
+	prefersDark.addEventListener("change", () => { if (!userPickedTheme()) applyTheme(osPreset(), false); });
+}
 applyLogoTheme();
 
 // ————— model tuning (per-model presets: sampling live, load knobs on reload) —————
