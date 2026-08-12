@@ -25,24 +25,25 @@
 		/* ink — warm charcoal on paper. These literals are exactly what derived() computes for the
 		   Daylight base, so re-picking Daylight in Customize is a no-op rather than a small shift. */
 		--tx: #211c15; --tx-dim: #3d3830; --tx-faint: #6a665c;
-		--ac: #4c6a33; --ac-soft: #4c6a332e; --ac-fg: #fbf9f3; /* sage primary — light ink on top */
-		--ac-text: #4c6a33; /* the accent where it is rendered as text rather than as a fill */
-		--warn: #aa4900; /* in-progress states */
-		--ok: #014723; --err: #9d5348; /* success / failure text on a panel */
-		--sel: #4c6a3340; /* editor selection */
+		--ac: #527737; --ac-soft: #5277372e; --ac-fg: #fbf9f3; /* sage primary — light ink on top */
+		--ac-text: #527737; /* the accent where it is rendered as text rather than as a fill */
+		--warn: #582c10; /* in-progress states */
+		--ok: #363a28; --err: #9d5348; /* success / failure text on a panel */
+		--sel: #52773740; /* editor selection */
 		/* Logo ramp. These are the fallbacks for first paint; applyLogoTheme() overwrites them
 		   with values derived from the live --ac / --s-nu, so the mark follows the theme. */
-		--logo-hi: #6d8f4a; --logo-mid: #4c6a33; --logo-lo: #3b5228;
-		--logo-ink: #171d10; --logo-line: #7d9e63; --logo-bar: #aa4900;
+		--logo-hi: #74a04f; --logo-mid: #527737; --logo-lo: #3f5c2a;
+		--logo-ink: #182111; --logo-line: #82ab63; --logo-bar: #582c10;
 		/* surfaces — flat, opaque, one step apart. No blur, no glow, no gradients. */
 		--bg: #ddd9cc;      /* page */
 		--card: #f9f7f1;    /* panels, dialogs, menus */
 		--card-2: #eae8e2;  /* inputs, hover fills */
 		--card-3: #dbd8d2;  /* pressed / selected fills */
 		--brd: #a39f99; --brd-soft: #c9c7c1;
-		/* syntax — spread across the blue/amber axis so the five stay apart for a dichromat */
-		--s-cm: #816d33; --s-kw: #740166; --s-st: #014723; --s-nu: #aa4900;
-		--s-fn: #1f69ac; --s-pn: #4a463d; --s-id: #211c15;
+		/* syntax — hue-bounded so string stays green (it is --ok) and number amber (--warn),
+		   then spread for separation under simulated colour blindness */
+		--s-cm: #af5900; --s-kw: #840662; --s-st: #363a28; --s-nu: #582c10;
+		--s-fn: #1d60a0; --s-pn: #4a463d; --s-id: #211c15;
 		/* Scrim over the model-picker animation; recomputed per theme (see derived()). */
 		--mp-scrim: linear-gradient(96deg, #f9f7f1fc 0%, #f9f7f1f7 46%, #f9f7f1ea 100%);
 
@@ -2148,12 +2149,12 @@ function aiState(s) {
 // PRESETS[0] is also the light default and PRESETS[2] the first dark, which is what
 // osPreset() picks up from prefers-color-scheme.
 const PRESETS = [
-	{ name: "Daylight", card: "#f9f7f1", bg: "#ddd9cc", text: "#211c15", accent: "#4c6a33", keyword: "#740166", string: "#014723", number: "#aa4900", func: "#1f69ac", comment: "#816d33" },
-	{ name: "Chalk", card: "#fefeff", bg: "#dcdde0", text: "#030508", accent: "#1d5296", keyword: "#824cac", string: "#0f581f", number: "#9c3d03", func: "#14433c", comment: "#93696d" },
-	{ name: "Sagebrush", card: "#272e1d", bg: "#202617", text: "#f3f6eb", accent: "#9bc086", keyword: "#eea0a2", string: "#b0ef85", number: "#f8a235", func: "#90c5fd", comment: "#a1954d" },
-	{ name: "Ash", card: "#252523", bg: "#1c1c1b", text: "#e9e8e4", accent: "#a3b394", keyword: "#e295a4", string: "#abc670", number: "#e8b55e", func: "#81deff", comment: "#988c6a" },
-	{ name: "Slate", card: "#222935", bg: "#191f28", text: "#d7dee9", accent: "#7ba5d1", keyword: "#d998d5", string: "#7baa6d", number: "#f1b46c", func: "#b2e0ff", comment: "#7999a4" },
-	{ name: "Ember", card: "#382820", bg: "#2c1e18", text: "#fbf3ea", accent: "#e2914f", keyword: "#f8a2a2", string: "#baf38a", number: "#ffd447", func: "#70dff5", comment: "#a09552" },
+	{ name: "Daylight", card: "#f9f7f1", bg: "#ddd9cc", text: "#211c15", accent: "#527737", keyword: "#840662", string: "#363a28", number: "#582c10", func: "#1d60a0", comment: "#af5900" },
+	{ name: "Chalk", card: "#fbfbfd", bg: "#dcdde1", text: "#1b1e24", accent: "#285c89", keyword: "#6832ff", string: "#317532", number: "#8c5e00", func: "#28412c", comment: "#a06055" },
+	{ name: "Sagebrush", card: "#272e1d", bg: "#202617", text: "#f3f6eb", accent: "#91b56a", keyword: "#dd91af", string: "#c3f354", number: "#f8b027", func: "#9defff", comment: "#aa9152" },
+	{ name: "Ash", card: "#252523", bg: "#1c1c1b", text: "#e9e8e4", accent: "#98a77d", keyword: "#ddb8ca", string: "#99cc69", number: "#ccba55", func: "#9adfff", comment: "#a58a4e" },
+	{ name: "Slate", card: "#222935", bg: "#191f28", text: "#d7dee9", accent: "#709dc4", keyword: "#dc877b", string: "#85dd74", number: "#ffa75e", func: "#c4dfff", comment: "#809d59" },
+	{ name: "Ember", card: "#382820", bg: "#2c1e18", text: "#fbf3ea", accent: "#e7822e", keyword: "#ee7c81", string: "#d0ef84", number: "#ffcb61", func: "#75f0ff", comment: "#959852" },
 ];
 const VAR_MAP = { bg: "--bg", card: "--card", text: "--tx", accent: "--ac", keyword: "--s-kw", string: "--s-st", number: "--s-nu", func: "--s-fn", comment: "--s-cm" };
 
@@ -2218,7 +2219,11 @@ const contrastRatio = (a, b) => {
 // comes back untouched, which is what makes it safe to apply on every re-derive.
 function ensureContrast(fg, bg, min) {
 	if (contrastRatio(fg, bg) >= min) return fg;
-	const pole = relLum(bg) > 0.4 ? "#000000" : "#ffffff";
+	// Whichever pole is genuinely further from bg, not whichever side of a threshold it
+	// falls on: a mid-luminance orange sits below 0.4 relative luminance but has far more
+	// room toward black than toward white, and guessing white there produced an accent
+	// button at 2.87:1 while this function reported success.
+	const pole = contrastRatio("#000000", bg) >= contrastRatio("#ffffff", bg) ? "#000000" : "#ffffff";
 	if (contrastRatio(pole, bg) < min) return pole; // target unreachable — go as far as it goes
 	let lo = 0, hi = 1;
 	for (let i = 0; i < 14; i++) {
