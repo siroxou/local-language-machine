@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { auditGuardrails, jail, type Budget } from "./guard.ts";
 import { resolveInRoot } from "../native/tools/tools.ts";
 
@@ -79,7 +79,10 @@ test("glob cannot climb out of the root, and counts what it dropped", async () =
 	assert.equal(g.stats().jailRejections, 3, "each rejection is counted, not silently dropped");
 
 	const inside = await call(g.tools.glob, { pattern: "**/*.txt" });
-	assert.deepEqual(inside.matches.sort(), ["inside.txt", "sub/nested.txt"], "legitimate patterns still work");
+	// fs.glob reports native separators, so Windows returns "sub\nested.txt". resolveInRoot
+	// accepts either, so this is the assertion being platform-naive rather than the tool.
+	const matches = inside.matches.map((m: string) => m.split(sep).join("/")).sort();
+	assert.deepEqual(matches, ["inside.txt", "sub/nested.txt"], "legitimate patterns still work");
 });
 
 // ————— budgets —————
