@@ -17,6 +17,7 @@ import { LlamaCppEngine } from "../native/inference/engine.ts";
 import { Orchestrator } from "../core/orchestrator.ts";
 import { Session } from "../core/session.ts";
 import { tree, read, write, createFile, createDir, rename, remove, listDirs, searchWorkspace, escapeRegex } from "../core/workspace.ts";
+import { safeRegExp } from "../native/tools/tools.ts";
 import { addRecentFolder, recentFolders } from "../core/recents.ts";
 import { errMsg } from "../core/loop.ts";
 import { searchGguf, listGgufFiles } from "../native/models/hub.ts";
@@ -25,6 +26,7 @@ import { startTraining, stopTraining, isTraining } from "../native/training/trai
 import { listRuns, fetchHfDataset } from "../native/training/runs.ts";
 import { startConvert } from "../native/training/gguf.ts";
 import { runEval } from "../native/training/eval.ts";
+import { isAllowedOrigin } from "./origin.ts";
 
 const PORT = Number(process.env.PORT ?? 7433);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -64,7 +66,7 @@ async function replaceAll(query: string, replacement: string, opts: { regex?: bo
 	const { matches, truncated } = await searchWorkspace(ROOT, query, opts);
 	const files = [...new Set(matches.map((m) => m.path))];
 	const pattern = opts.regex ? query : escapeRegex(query);
-	const re = new RegExp(pattern, "g" + (opts.caseSensitive ? "" : "i"));
+	const re = safeRegExp(pattern, "g" + (opts.caseSensitive ? "" : "i"));
 	let count = 0;
 	for (const rel of files) {
 		await orch.snapshotBeforeWrite(rel).catch(() => {});
@@ -105,7 +107,18 @@ const http = createServer(async (req, res) => {
 	}
 });
 
-const wss = new WebSocketServer({ server: http });
+// The socket below can run a shell command, re-root the workspace, and read the stored
+// Hub token, so it checks who is connecting. Loopback is not an authentication boundary:
+// the same-origin policy does not cover WebSocket handshakes, so without verifyClient any
+// page in any browser on this machine could open this socket and drive the whole app.
+const wss = new WebSocketServer({
+	server: http,
+	verifyClient: ({ origin }: { origin?: string }) => {
+		if (isAllowedOrigin(origin, PORT)) return true;
+		console.warn(`  refused a WebSocket connection from origin ${origin}`);
+		return false;
+	},
+});
 
 // Push a message to every connected client. Training is an app-wide singleton, so its
 // live logs/progress fan out to all clients rather than the one that started the run.

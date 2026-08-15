@@ -57,6 +57,7 @@ export function gradeAnswer(output: string, answer: string, distractors: string[
 		const t = c.trim().toLowerCase();
 		if (!t) return false;
 		// \b is wrong next to "." or "%" — bound on non-word chars we control instead.
+		// audit-ok(regexp-non-literal-source): the interpolated choice text is regex-escaped inline
 		const re = new RegExp(`(^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`);
 		return re.test(hay);
 	};

@@ -37,8 +37,25 @@ export function estimateTokens(history: ChatHistoryItem[]): number {
 	return Math.ceil(historyChars(history) / CHARS_PER_TOKEN);
 }
 
+/**
+ * Characters compaction can actually remove — everything except the system items, which
+ * `spliceSummary` always keeps.
+ */
+export function compactableChars(history: ChatHistoryItem[]): number {
+	return historyChars(history.filter((i: any) => i.type !== "system"));
+}
+
+/**
+ * Measured against the compactable part only.
+ *
+ * Counting the system items made the threshold reachable by something compaction cannot
+ * touch: the system prompt embeds AGENTS.md and MEMORY.md at up to 25k characters each, so
+ * a project with a decent AGENTS.md sat permanently over the limit. Every turn then ran a
+ * full extra summarization pass — allocating a second 16k context — to summarize a
+ * conversation that was already short enough, forever, and the turn after it did the same.
+ */
 export function needsCompaction(history: ChatHistoryItem[], limitChars = COMPACT_AT_CHARS): boolean {
-	return historyChars(history) > limitChars;
+	return compactableChars(history) > limitChars;
 }
 
 /** A one-line-per-item breakdown for the `/context` command. */

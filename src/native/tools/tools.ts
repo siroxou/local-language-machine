@@ -6,8 +6,9 @@
 // modes + confirm), not here.
 
 import { exec as cpExec } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { readFile, writeFile, mkdir, readdir, glob } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ToolDef } from "../inference/engine.ts";
 
@@ -33,15 +34,76 @@ export interface ToolContext {
 
 const MAX_READ_BYTES = 100_000; // cap read size so a huge file can't blow the context window
 
-/** Resolve `p` under `root`, rejecting anything that escapes it. */
+// Longest search pattern accepted. Real patterns are short; the length is what gives a
+// backtracking blow-up room to grow.
+const MAX_PATTERN_CHARS = 1_000;
+// The classic catastrophic-backtracking shape: a group that itself contains an unbounded
+// quantifier, repeated again — (a+)+, (a*)*, ([a-z]+)* and friends. Matching "a".repeat(30)
+// against one of these does not finish in any useful time.
+const NESTED_QUANTIFIER = /\([^)]*[+*][^)]*\)\s*[+*]|\([^)]*[+*][^)]*\)\s*\{\d+,\s*\}/;
+
+/**
+ * Build a RegExp from a pattern that came off the wire or out of the model.
+ *
+ * Both the workspace search and the grep tool run their pattern over every file in the
+ * tree on the process's only thread — the same thread that serves the UI — so a pattern
+ * that backtracks catastrophically is a hang with no error and no way to cancel it.
+ *
+ * ponytail: a length cap plus a nested-quantifier reject, which reduces the exposure rather
+ * than removing it — no string test can decide this in general, and JS RegExp has no match
+ * timeout. The complete fix is to evaluate untrusted patterns on a worker thread, where a
+ * runaway match can be killed; do that if a hang is ever actually observed.
+ */
+export function safeRegExp(pattern: string, flags = ""): RegExp {
+	if (pattern.length > MAX_PATTERN_CHARS) {
+		throw new Error(`Search pattern is too long (${pattern.length} > ${MAX_PATTERN_CHARS} characters).`);
+	}
+	if (NESTED_QUANTIFIER.test(pattern)) {
+		throw new Error("Search pattern nests one unbounded repeat inside another, which can hang the search. Simplify it.");
+	}
+	// audit-ok(regexp-non-literal-source): this IS the checkpoint every untrusted pattern goes through
+	return new RegExp(pattern, flags); // an otherwise-invalid pattern throws — surfaced to the caller
+}
+
+/**
+ * Resolve `p` under `root`, rejecting anything that escapes it.
+ *
+ * Containment is checked against *resolved* paths, not the strings. A lexical comparison
+ * accepts `workspace/link/etc/passwd` whenever `link` is a symlink out of the tree — and
+ * the model can create such a link itself with run_terminal. macOS makes it reachable
+ * with no setup at all, since /tmp is itself a link to /private/tmp.
+ *
+ * The target may legitimately not exist yet (write_file creates intermediate dirs), so
+ * only the deepest existing ancestor is resolved and the unresolved tail is re-appended.
+ *
+ * ponytail: realpathSync on every call. Two extra stats per tool call, against a boundary
+ * that has to be right — cache the resolved root here if a profile ever shows it.
+ */
 export function resolveInRoot(root: string, p: string): string {
-	const abs = isAbsolute(p) ? resolve(p) : resolve(root, p);
-	const rel = relative(resolve(root), abs);
-	if (rel === "" ) return abs;
+	const realRoot = realpathSync(resolve(root));
+	const abs = isAbsolute(p) ? resolve(p) : resolve(realRoot, p);
+
+	const tail: string[] = [];
+	let probe = abs;
+	for (;;) {
+		try {
+			probe = realpathSync(probe);
+			break;
+		} catch {
+			const parent = dirname(probe);
+			if (parent === probe) break; // reached the filesystem root without finding anything
+			tail.unshift(probe.slice(parent.length + 1));
+			probe = parent;
+		}
+	}
+	const resolved = tail.length ? join(probe, ...tail) : probe;
+
+	const rel = relative(realRoot, resolved);
+	if (rel === "") return resolved;
 	if (rel.startsWith("..") || isAbsolute(rel)) {
 		throw new Error(`Path escapes the workspace: ${p}`);
 	}
-	return abs;
+	return resolved;
 }
 
 /** Recursively visit every file under `dir` (skipping SKIP_DIRS), passing the absolute path and the path relative to `root`. */
@@ -113,10 +175,13 @@ export function buildTools(ctx: ToolContext): Record<string, ToolDef> {
 				required: ["pattern"],
 			},
 			async handler({ pattern, path, flags }: { pattern: string; path?: string; flags?: string }) {
-				const re = new RegExp(pattern, flags ?? ""); // bad regex throws → surfaced to the model as an error
-				const base = resolveInRoot(ctx.root, path ?? ".");
+				const re = safeRegExp(pattern, flags ?? ""); // bad or hostile pattern throws → surfaced to the model as an error
+				// Both arguments must be resolved, or reported paths come out relative to the
+				// unresolved root and stop round-tripping through resolveInRoot.
+				const root = resolveInRoot(ctx.root, ".");
+				const base = resolveInRoot(root, path ?? ".");
 				const matches: Array<{ path: string; line: number; text: string }> = [];
-				await walkFiles(base, ctx.root, async (abs, rel) => {
+				await walkFiles(base, root, async (abs, rel) => {
 					if (matches.length >= MAX_GREP_MATCHES) return;
 					const buf = await readFile(abs).catch(() => null);
 					if (!buf || buf.byteLength > MAX_READ_BYTES || buf.includes(0)) return; // skip huge/binary files
@@ -133,9 +198,24 @@ export function buildTools(ctx: ToolContext): Record<string, ToolDef> {
 			description: "Find workspace files matching a glob pattern, e.g. \"src/**/*.ts\".",
 			params: { type: "object", properties: { pattern: { type: "string" } }, required: ["pattern"] },
 			async handler({ pattern }: { pattern: string }) {
+				// `cwd` scopes where matching starts; it is not a boundary. A climbing pattern
+				// walks out of it and an absolute one ignores it, so the pattern is rejected up
+				// front — filtering results afterwards would still enumerate the parent to throw
+				// it away, which leaks which sibling names exist by what survives.
+				if (isAbsolute(pattern) || pattern.split(/[/\\]/).includes("..")) {
+					throw new Error(`Path escapes the workspace: ${pattern}`);
+				}
+				const root = resolveInRoot(ctx.root, ".");
 				const out: string[] = [];
-				for await (const p of glob(pattern, { cwd: ctx.root })) {
-					out.push(typeof p === "string" ? p : String(p));
+				for await (const p of glob(pattern, { cwd: root })) {
+					const rel = typeof p === "string" ? p : String(p);
+					// Second check, for a symlink inside the tree that points out of it.
+					try {
+						resolveInRoot(root, rel);
+					} catch {
+						continue;
+					}
+					out.push(rel);
 					if (out.length >= MAX_GLOB_MATCHES) break;
 				}
 				return { matches: out, truncated: out.length >= MAX_GLOB_MATCHES };

@@ -13,6 +13,11 @@ import { spawn, type ChildProcess } from "node:child_process";
 import type { ToolDef } from "../inference/engine.ts";
 import type { McpServerConfig } from "../../core/settings.ts";
 
+// A stdio server that never answers must not hang the turn behind it.
+const REQUEST_TIMEOUT_MS = 20_000;
+// Cap on unframed stdout held in memory while waiting for a newline.
+const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
+
 interface RpcTool {
 	name: string;
 	description?: string;
@@ -32,14 +37,34 @@ export class McpClient {
 		});
 		this.#proc.stdout!.setEncoding("utf8");
 		this.#proc.stdout!.on("data", (chunk: string) => this.#onData(chunk));
-		this.#proc.on("exit", () => {
-			for (const p of this.#pending.values()) p.reject(new Error(`MCP server ${name} exited`));
-			this.#pending.clear();
-		});
+		// 'error' is emitted asynchronously — a bad `command` fails after the constructor has
+		// already returned, so connectMcpServers' try/catch cannot see it. With no listener
+		// attached, Node turns that into an uncaught exception and the whole app goes down
+		// because one configured server was misspelled. A failing server must never do more
+		// than disable itself.
+		this.#proc.on("error", (e) => this.#fail(`MCP server ${name} failed to start: ${e.message}`));
+		// stdin can also break independently: writing to a server that has just died raises
+		// EPIPE on the stream, not at the call site.
+		this.#proc.stdin!.on("error", (e) => this.#fail(`MCP server ${name} stdin closed: ${e.message}`));
+		this.#proc.on("exit", () => this.#fail(`MCP server ${name} exited`));
+	}
+
+	/** Reject everything in flight with one reason. Safe to call more than once. */
+	#fail(reason: string): void {
+		for (const p of this.#pending.values()) p.reject(new Error(reason));
+		this.#pending.clear();
 	}
 
 	#onData(chunk: string): void {
 		this.#buf += chunk;
+		// Framing is newline-delimited, so a server that streams without ever emitting one
+		// would grow this string until the process runs out of memory. Nothing legitimate
+		// sends a single 8 MB frame; drop the buffer and resynchronise at the next newline.
+		if (this.#buf.length > MAX_BUFFERED_BYTES) {
+			const nl = this.#buf.lastIndexOf("\n");
+			this.#buf = nl >= 0 ? this.#buf.slice(nl + 1) : "";
+			console.warn(`  MCP server ${this.name} sent an oversized frame; buffer reset`);
+		}
 		let nl: number;
 		while ((nl = this.#buf.indexOf("\n")) >= 0) {
 			const line = this.#buf.slice(0, nl).trim();
@@ -61,12 +86,27 @@ export class McpClient {
 
 	#request(method: string, params?: unknown): Promise<any> {
 		const id = this.#nextId++;
-		this.#proc.stdin!.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
 		return new Promise((resolve, reject) => {
-			this.#pending.set(id, { resolve, reject });
-			setTimeout(() => {
+			// Register before writing. The write can fail synchronously, and a server that
+			// answers instantly must find its pending entry already in place.
+			const timer = setTimeout(() => {
 				if (this.#pending.delete(id)) reject(new Error(`MCP ${this.name} timed out on ${method}`));
-			}, 20_000);
+			}, REQUEST_TIMEOUT_MS);
+			// Cleared on every settled path, not just the timeout — an uncleared deadline holds
+			// the event loop open for 20s after each answered call, so a session that made a few
+			// hundred tool calls kept a few hundred live timers and delayed process exit.
+			const done = (fn: (v: any) => void) => (v: any) => {
+				clearTimeout(timer);
+				fn(v);
+			};
+			this.#pending.set(id, { resolve: done(resolve), reject: done(reject) });
+			try {
+				this.#proc.stdin!.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+			} catch (e) {
+				this.#pending.delete(id);
+				clearTimeout(timer);
+				reject(e);
+			}
 		});
 	}
 

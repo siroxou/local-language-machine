@@ -76,3 +76,13 @@ test("list reports message count and token total", () => {
 	assert.equal(found!.tokens, 150);
 	assert.equal(found!.label, "one");
 });
+
+test("a session id that would escape the sessions directory is rejected", () => {
+	// `resume-session` passes an id straight off the WebSocket into a path join, so the
+	// shape is checked at the constructor — the one point create/open/fork all pass through.
+	for (const bad of ["../..", "../../etc", "a/b", "a\\b", ".", "..", "", "x".repeat(65)]) {
+		assert.throws(() => Session.open(root, bad), /Invalid session id/, `should reject ${JSON.stringify(bad)}`);
+	}
+	// The real shape — an 8-char slice of a uuid — still works.
+	assert.ok(Session.open(root, "1a2b3c4d").dir.endsWith("1a2b3c4d"));
+});

@@ -1375,6 +1375,13 @@
 	<div class="menu" id="moreMenu" role="menu" aria-label="More"></div>
 
 <script>
+// ————— escaping —————
+// Anything that reaches innerHTML goes through this first. The values are not all local:
+// file and skill names come off the disk, tool names come from the model, error strings
+// come from the server, and repo ids and file paths come from the Hugging Face Hub.
+// Defined at the top of the script because it is needed by nearly every renderer below.
+const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 // ————— transport (WebSocket now; swap to VS Code postMessage in the webview) —————
 const proto = location.protocol === "https:" ? "wss" : "ws";
 let ws, reconnect;
@@ -1434,6 +1441,7 @@ const code = $("code"), hl = $("hl"), gutter = $("gutter"), tabsEl = $("tabs");
 function renderCode() {
 	const f = files.get(active);
 	if (!f) { hl.innerHTML = ""; gutter.textContent = ""; return; }
+	// audit-ok(innerhtml-interpolated): highlight() escapes every token itself; its one raw branch emits an identifier, which cannot contain markup
 	hl.innerHTML = highlight(f.content, f.lang) + "\n";
 	const lines = f.content.split("\n").length;
 	let g = ""; for (let i = 1; i <= lines; i++) g += i + "\n";
@@ -1463,7 +1471,7 @@ function renderTabs() {
 		const tab = document.createElement("div");
 		tab.className = "tab" + (path === active ? " active" : "");
 		const name = path.split("/").pop();
-		tab.innerHTML = `<span>${name}</span>` + (f.dirty ? `<span class="dirty" title="Unsaved"></span>` : `<span class="x" title="Close">×</span>`);
+		tab.innerHTML = `<span>${escHtml(name)}</span>` + (f.dirty ? `<span class="dirty" title="Unsaved"></span>` : `<span class="x" title="Close">×</span>`);
 		tab.onclick = (e) => { if (e.target.classList.contains("x")) closeTab(path); else switchTab(path); };
 		tabsEl.appendChild(tab);
 	}
@@ -1574,7 +1582,7 @@ function appendToken(t) { ensureText(); textEl.textContent += t; scrollChat(); }
 function addTool(name, args) {
 	ensureTurn(); if (textEl) { textEl.remove(); textEl = null; }
 	const card = document.createElement("div"); card.className = "tool collapsed";
-	card.innerHTML = `<div class="head"><span>🔧</span><span class="name">${name}</span><span class="st">running…</span></div><pre></pre>`;
+	card.innerHTML = `<div class="head"><span>🔧</span><span class="name">${escHtml(name)}</span><span class="st">running…</span></div><pre></pre>`;
 	card.querySelector("pre").textContent = "args: " + JSON.stringify(args, null, 2);
 	card.querySelector(".head").onclick = () => card.classList.toggle("collapsed");
 	turn.querySelector(".body").appendChild(card); lastTool = card; scrollChat();
@@ -1685,7 +1693,7 @@ function renderPicker() {
 	const shown = q ? list.filter((m) => (m.label + " " + m.owner + " " + m.repo).toLowerCase().includes(q)) : list;
 
 	const host = $("mpList"); host.innerHTML = "";
-	if (!shown.length) host.innerHTML = `<div class="mp-empty">No models match “${q}”.</div>`;
+	if (!shown.length) host.innerHTML = `<div class="mp-empty">No models match “${escHtml(q)}”.</div>`;
 	for (const m of shown) {
 		const el = document.createElement("div");
 		el.className = "mp-item" + (m.id === mpSelId ? " sel" : "") + (m.loaded ? " on" : "");
@@ -1694,7 +1702,7 @@ function renderPicker() {
 		const state = m.loaded ? "active"
 			: downloading[m.id] != null ? downloading[m.id] + "%"
 			: m.cached ? "ready" : gbLabel(m.sizeGB);
-		el.innerHTML = `<div class="txt"><div class="nm">${shortName(m.label)}</div><div class="own">${m.owner || "—"}</div></div><div class="st">${state}</div>`;
+		el.innerHTML = `<div class="txt"><div class="nm">${escHtml(shortName(m.label))}</div><div class="own">${escHtml(m.owner || "—")}</div></div><div class="st">${escHtml(state)}</div>`;
 		el.onclick = () => { mpSelId = m.id; renderPicker(); };
 		el.ondblclick = () => activateModel(m);
 		host.appendChild(el);
@@ -1957,6 +1965,7 @@ function renderOnb() {
 	$("onbTitle").innerHTML = step.title;
 	$("onbSub").innerHTML = step.sub;
 	$("onbBody").innerHTML = step.body();
+	// audit-ok(innerhtml-interpolated): interpolates a loop index against a local literal array, no external input
 	$("onbDots").innerHTML = ONB_STEPS.map((_, i) => `<i class="${i === onbStep ? "on" : ""}"></i>`).join("");
 	$("onbBack").style.visibility = onbStep === 0 ? "hidden" : "";
 	$("onbNext").textContent = onbStep === ONB_STEPS.length - 1 ? "Start building →" : "Next";
@@ -2041,7 +2050,7 @@ onMsg((m) => {
 		case "renamed": toast("Renamed"); if (files.has(m.from)) { closeTab(m.from); send({ type: "open", path: m.to }); } break;
 		case "deleted": toast("Deleted " + m.path.split("/").pop()); if (files.has(m.path)) closeTab(m.path); break;
 		case "search-results": renderSearchResults(m); break;
-		case "search-error": $("searchResults").innerHTML = '<div class="sr-file">⚠️ ' + m.message + "</div>"; break;
+		case "search-error": $("searchResults").innerHTML = `<div class="sr-file">⚠️ ${escHtml(m.message)}</div>`; break;
 		case "replaced": toast(`Replaced ${m.count} occurrence(s) in ${m.files} file(s)` + (m.truncated ? " — hit the search cap, run it again to catch the rest" : "")); runSearch(); break;
 	}
 });
@@ -2325,7 +2334,7 @@ function renderPresets() {
 	const host = $("presets"); host.innerHTML = "";
 	for (const p of PRESETS) {
 		const el = document.createElement("div"); el.className = "preset";
-		el.innerHTML = `<div class="sw" style="background:${p.card};border:1px solid ${p.accent}"><i style="background:${p.accent}"></i><i style="background:${p.text}"></i></div><div class="nm">${p.name}</div>`;
+		el.innerHTML = `<div class="sw" style="background:${escHtml(p.card)};border:1px solid ${escHtml(p.accent)}"><i style="background:${escHtml(p.accent)}"></i><i style="background:${escHtml(p.text)}"></i></div><div class="nm">${escHtml(p.name)}</div>`;
 		el.onclick = () => { applyTheme(p); renderColorPickers(); $("themeStatus").textContent = `Applied “${p.name}”.`; sfx.click(); };
 		host.appendChild(el);
 	}
@@ -2355,7 +2364,7 @@ function renderColorPickers() {
 	for (const role of COLOR_ROLES) {
 		const cur = toHex6(cs.getPropertyValue(VAR_MAP[role.key])) || "#000000";
 		const row = document.createElement("div"); row.className = "color-row";
-		row.innerHTML = `<span>${role.label}</span><input type="color" value="${cur}" aria-label="${role.label}">`;
+		row.innerHTML = `<span>${escHtml(role.label)}</span><input type="color" value="${escHtml(cur)}" aria-label="${escHtml(role.label)}">`;
 		const inp = row.querySelector("input");
 		inp.oninput = () => {
 			// Go through applyTheme so a hand-picked colour re-derives the surfaces and inks too.
@@ -2465,6 +2474,7 @@ function tuneNumRow(host, bucket, r) {
 	const cur = tune[bucket][r.key];
 	const el = document.createElement("div"); el.className = "tune-row";
 	const mid = cur == null ? +(((r.min + r.max) / 2).toFixed(4)) : cur;
+	// audit-ok(innerhtml-interpolated): r.label comes from a local literal list of tuning rows
 	el.innerHTML = `<label title="empty = model default">${r.label}</label>`
 		+ `<input type="range" min="${r.min}" max="${r.max}" step="${r.step}" value="${mid}">`
 		+ `<input type="number" min="${r.min}" max="${r.max}" step="${r.step}" placeholder="auto" value="${cur == null ? "" : cur}">`;
@@ -2476,6 +2486,7 @@ function tuneNumRow(host, bucket, r) {
 function tuneBoolRow(host, bucket, b) {
 	const cur = tune[bucket][b.key];
 	const el = document.createElement("div"); el.className = "tune-row";
+	// audit-ok(innerhtml-interpolated): b.label comes from a local literal list of backend options
 	el.innerHTML = `<label>${b.label}</label><select><option value="">Auto</option><option value="on">On</option><option value="off">Off</option></select>`;
 	const s = el.querySelector("select"); s.value = cur == null ? "" : (cur ? "on" : "off");
 	s.onchange = () => setTune(bucket, b.key, s.value === "" ? undefined : s.value === "on");
@@ -2551,7 +2562,6 @@ for (const k of TRAIN_FIELDS) {
 }
 
 // ————— runs history + evaluation (base vs fine-tuned) —————
-const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let lastRuns = [];
 function refreshRuns() { send({ type: "train-runs" }); }
 
@@ -2671,7 +2681,8 @@ function renderHfResults(models) {
 	hfBody.innerHTML = "";
 	for (const m of models) {
 		const row = document.createElement("div"); row.className = "hf-repo";
-		row.innerHTML = `<div class="hf-repo-id">${m.id}</div><div class="hf-repo-meta">⬇ ${fmtN(m.downloads)} · ♥ ${fmtN(m.likes)}</div>`;
+		// audit-ok(innerhtml-interpolated): Hub strings are escaped; the remaining interpolations are fmtN() number formatters
+		row.innerHTML = `<div class="hf-repo-id">${escHtml(m.id)}</div><div class="hf-repo-meta">⬇ ${fmtN(m.downloads)} · ♥ ${fmtN(m.likes)}</div>`;
 		row.onclick = () => { hfStatus.textContent = "Loading files…"; send({ type: "hf-files", repoId: m.id }); };
 		hfBody.appendChild(row);
 	}
@@ -2683,7 +2694,8 @@ function renderHfFiles(repoId, files) {
 	hfStatus.textContent = files.length ? repoId : "No .gguf files in this repo.";
 	for (const f of files) {
 		const row = document.createElement("div"); row.className = "hf-file";
-		row.innerHTML = `<div class="hf-file-name">${f.path.split("/").pop()}${f.sharded ? '<span class="hf-tag">sharded</span>' : ""}</div><div class="hf-file-size">${fmtSize(f.sizeBytes)}</div><button class="hf-add-btn">Add</button>`;
+		// audit-ok(innerhtml-interpolated): Hub path is escaped; the remaining interpolation is a fmtSize() number formatter
+		row.innerHTML = `<div class="hf-file-name">${escHtml(f.path.split("/").pop())}${f.sharded ? '<span class="hf-tag">sharded</span>' : ""}</div><div class="hf-file-size">${fmtSize(f.sizeBytes)}</div><button class="hf-add-btn">Add</button>`;
 		const btn = row.querySelector(".hf-add-btn");
 		btn.onclick = () => { btn.disabled = true; hfStatus.textContent = `Adding ${repoId}…`; send({ type: "hf-add", repoId, file: f }); };
 		hfBody.appendChild(row);
@@ -3108,7 +3120,7 @@ function renderTranscript(events) {
 	for (const e of events || []) {
 		if (e.type === "user") addUser(e.text || "");
 		else if (e.type === "assistant") { const el = document.createElement("div"); el.className = "msg assistant"; el.innerHTML = `<div class="bubble"></div>`; el.querySelector(".bubble").textContent = e.text || ""; chatEl.appendChild(el); }
-		else if (e.type === "tool-call") { const el = document.createElement("div"); el.className = "msg assistant"; el.innerHTML = `<div class="tool collapsed"><div class="head"><span>🔧</span><span class="name">${e.name}</span><span class="st">done</span></div><pre></pre></div>`; el.querySelector("pre").textContent = "args: " + JSON.stringify(e.data, null, 2); el.querySelector(".head").onclick = () => el.querySelector(".tool").classList.toggle("collapsed"); chatEl.appendChild(el); }
+		else if (e.type === "tool-call") { const el = document.createElement("div"); el.className = "msg assistant"; el.innerHTML = `<div class="tool collapsed"><div class="head"><span>🔧</span><span class="name">${escHtml(e.name)}</span><span class="st">done</span></div><pre></pre></div>`; el.querySelector("pre").textContent = "args: " + JSON.stringify(e.data, null, 2); el.querySelector(".head").onclick = () => el.querySelector(".tool").classList.toggle("collapsed"); chatEl.appendChild(el); }
 	}
 	scrollChat();
 }
@@ -3122,7 +3134,7 @@ function renderSkills(list) {
 	if (!list || !list.length) { b.innerHTML = '<div class="hf-repo-meta">No skills yet — import some below.</div>'; return; }
 	for (const s of list) {
 		const row = document.createElement("div"); row.className = "hf-repo";
-		row.innerHTML = `<div class="hf-repo-id">/${s.name}</div><div class="hf-repo-meta">${(s.description || "").replace(/</g, "&lt;")}</div>`;
+		row.innerHTML = `<div class="hf-repo-id">/${escHtml(s.name)}</div><div class="hf-repo-meta">${escHtml(s.description || "")}</div>`;
 		row.onclick = () => { input.value = "/" + s.name + " "; input.focus(); $("skillsOverlay").classList.remove("show"); };
 		b.appendChild(row);
 	}
@@ -3168,10 +3180,10 @@ function openFolderPicker() {
 function renderFolderBrowse(m) {
 	folderCwd = m.path; $("folderStatus").textContent = m.path;
 	const rc = $("folderRecents"); rc.innerHTML = "";
-	for (const p of m.recents || []) { const el = document.createElement("div"); el.className = "hf-repo"; el.innerHTML = `<div class="hf-repo-id">${p.replace(/</g, "&lt;")}</div><div class="hf-repo-meta">recent</div>`; el.onclick = () => send({ type: "open-folder", path: p }); rc.appendChild(el); }
+	for (const p of m.recents || []) { const el = document.createElement("div"); el.className = "hf-repo"; el.innerHTML = `<div class="hf-repo-id">${escHtml(p)}</div><div class="hf-repo-meta">recent</div>`; el.onclick = () => send({ type: "open-folder", path: p }); rc.appendChild(el); }
 	const b = $("folderBrowse"); b.innerHTML = "";
 	if (m.parent) { const up = document.createElement("div"); up.className = "hf-repo"; up.innerHTML = '<div class="hf-repo-id">‹ up</div>'; up.onclick = () => send({ type: "browse-dirs", path: m.parent }); b.appendChild(up); }
-	for (const d of m.dirs) { const el = document.createElement("div"); el.className = "hf-repo"; el.innerHTML = `<div class="hf-repo-id">📁 ${d.name.replace(/</g, "&lt;")}</div>`; el.onclick = () => send({ type: "browse-dirs", path: d.path }); b.appendChild(el); }
+	for (const d of m.dirs) { const el = document.createElement("div"); el.className = "hf-repo"; el.innerHTML = `<div class="hf-repo-id">📁 ${escHtml(d.name)}</div>`; el.onclick = () => send({ type: "browse-dirs", path: d.path }); b.appendChild(el); }
 }
 function onFolderOpened(root) {
 	currentRoot = root;
@@ -3236,6 +3248,7 @@ function renderSearchResults(m) {
 	const byFile = {}; for (const r of m.matches) (byFile[r.path] ??= []).push(r);
 	for (const [path, rows] of Object.entries(byFile)) {
 		const fh = document.createElement("div"); fh.className = "sr-file"; fh.textContent = path; host.appendChild(fh);
+		// audit-ok(innerhtml-interpolated): interpolates an integer line number; the matched text is set with textContent on the next statement
 		for (const r of rows) { const el = document.createElement("div"); el.className = "sr-line"; el.innerHTML = `<span class="ln">${r.line}</span><span class="tx"></span>`; el.querySelector(".tx").textContent = r.text.trim(); el.onclick = () => { pendingGoto = { path, line: r.line }; send({ type: "open", path }); }; host.appendChild(el); }
 	}
 	if (m.truncated) { const t = document.createElement("div"); t.className = "sr-file"; t.textContent = "(results truncated)"; host.appendChild(t); }

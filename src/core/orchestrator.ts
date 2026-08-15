@@ -79,6 +79,7 @@ const SUBAGENT_TOOLS = ["read_file", "list_dir", "grep", "glob"]; // safe subset
 export class Orchestrator {
 	#chat?: ChatSession; // the model conversation
 	#baseHistory: ChatHistoryItem[] = []; // history right after createSession (system prompt) — for /clear
+	#pendingHistory?: ChatHistoryItem[]; // a resume that landed before any model was loaded — applied by #startSession
 	#loadedId?: string;
 	#appliedSystemPrompt = ""; // the user system prompt baked into the current session — to detect changes worth a restart
 
@@ -185,6 +186,15 @@ export class Orchestrator {
 		this.#chat = await this.engine.createSession({ systemPrompt: systemPrompt(tools, this.#skills, loadMemory(this.root), overview, userPrompt) });
 		this.#baseHistory = this.#chat.getHistory();
 		this.#sessionStarted = false;
+
+		// A resume that arrived before any model was loaded parked its history here. Apply it
+		// now that there is a session to hold it — otherwise the transcript was silently
+		// dropped while the UI reported the resume as successful, and loading a model
+		// afterwards started a blank conversation under the old session's name.
+		if (this.#pendingHistory) {
+			this.#chat.setHistory(rebaseHistory(this.#baseHistory, this.#pendingHistory));
+			this.#pendingHistory = undefined;
+		}
 	}
 
 	/** The loaded model's saved preset (or {} when none / no model). */
@@ -285,7 +295,7 @@ export class Orchestrator {
 
 		// Slash commands run before the model.
 		if (isSlash(text)) {
-			const r = await handleCommand(text, this.#commandDeps(ev));
+			const r = await handleCommand(text, this.#commandDeps());
 			if (r.kind === "reply") { ev.onToken(r.text); return r.text; }
 			if (r.kind === "skill") {
 				if (r.skill.fork) {
@@ -500,7 +510,7 @@ export class Orchestrator {
 		};
 	}
 
-	#commandDeps(ev: ChatEvents): CommandDeps {
+	#commandDeps(): CommandDeps {
 		return {
 			models: () => allModels().map((m) => ({ id: m.id, label: m.label, loaded: m.id === this.#loadedId })),
 			loadModel: (id) => this.load(id),
@@ -531,10 +541,15 @@ export class Orchestrator {
 		this.#chat?.setHistory([...this.#baseHistory]); // reset to just the system prompt
 	}
 
-	#fork(): string {
+	async #fork(): Promise<string> {
 		const forked = this.#store.fork();
 		this.#store = forked;
 		this.#checkpoints = new Checkpoints(forked.dir);
+		// Session.fork() copies checkpoints.json, but a fresh Checkpoints starts with an empty
+		// in-memory stack — and the next snapshot rewrites the whole file, so the copied
+		// history was overwritten before anything could use it. The Changes panel came up
+		// empty after /fork and undo could not rewind a single pre-fork edit.
+		await this.#checkpoints.load();
 		return forked.id;
 	}
 
@@ -543,7 +558,11 @@ export class Orchestrator {
 		this.#checkpoints = new Checkpoints(this.#store.dir);
 		await this.#checkpoints.load();
 		const hist = this.#store.loadHistory();
-		if (hist && this.#chat) this.#chat.setHistory(rebaseHistory(this.#baseHistory, hist));
+		if (!hist) return;
+		// Resuming before a model is loaded is normal — the sessions list is browsable on a
+		// cold start. Park the history instead of discarding it; #startSession applies it.
+		if (this.#chat) this.#chat.setHistory(rebaseHistory(this.#baseHistory, hist));
+		else this.#pendingHistory = hist;
 	}
 }
 

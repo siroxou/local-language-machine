@@ -15,7 +15,7 @@ const deps: CommandDeps = {
 	initMemory: () => "made AGENTS.md",
 	sessions: () => [{ id: "abc", label: "hello" }],
 	resume: async () => {},
-	fork: () => "newid",
+	fork: async () => "newid",
 	skills: () => [skill("deploy")],
 };
 

@@ -62,3 +62,35 @@ test("splicing gets an oversized recent turn under the compaction threshold in o
 	assert.ok(!out.some((h: any) => h.text?.length > 100_000), "the oversized turn must be trimmed, not carried over");
 	assert.match((out.at(-2) as any).text, /trimmed during compaction/);
 });
+
+test("a large system prompt alone never triggers compaction", () => {
+	// The system prompt embeds AGENTS.md and MEMORY.md, so it can exceed the threshold on its
+	// own — and spliceSummary always keeps system items, so compacting cannot shrink it. When
+	// the trigger counted it, every turn ran a full summarization pass that removed nothing.
+	const hugeSystem = [{ type: "system", text: "x".repeat(COMPACT_AT_CHARS + 5_000) }] as any;
+	assert.equal(needsCompaction(hugeSystem), false);
+
+	// A short exchange on top of that huge prompt is still not worth compacting.
+	const withTurns = [...hugeSystem, { type: "user", text: "hi" }, { type: "model", response: ["hello"] }] as any;
+	assert.equal(needsCompaction(withTurns), false);
+});
+
+test("compaction still triggers on real conversation growth", () => {
+	const history = [
+		{ type: "system", text: "sys" },
+		{ type: "user", text: "y".repeat(COMPACT_AT_CHARS + 1) },
+	] as any;
+	assert.equal(needsCompaction(history), true);
+});
+
+test("compaction stops once the conversation is spliced down", () => {
+	// The anti-thrash property: after one pass the result must be under the threshold, or the
+	// next turn compacts again and every turn pays for a summarization that changes nothing.
+	const history = [
+		{ type: "system", text: "x".repeat(30_000) },
+		...Array.from({ length: 12 }, (_, i) => ({ type: "user", text: `turn ${i} ` + "z".repeat(4_000) })),
+	] as any;
+	assert.equal(needsCompaction(history), true);
+	const spliced = spliceSummary(history, "a short summary of earlier turns", 4);
+	assert.equal(needsCompaction(spliced), false, "one pass must be enough");
+});

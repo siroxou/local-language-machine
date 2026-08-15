@@ -2,13 +2,14 @@
 //
 // Read from two places and merged: the user file ~/.local-language-machine/settings.json and the
 // project's ./.claude/settings.json. Reading the project's ./.claude/ directory means an existing
-// config mostly carries over. The project layer contributes hooks and MCP servers only — it cannot
-// set permissionMode, online or allow, because a repo ships that file to everyone who clones it.
+// config mostly carries over. The project layer cannot set permissionMode, online or allow, and
+// contributes hooks and MCP servers only for a root the user has listed in `trustedProjects` —
+// both execute commands, and a repo ships that file to everyone who clones it.
 // Holds the permission mode, command allow-list, hooks, MCP servers, and the `online` switch that
 // gates the agent's network reach (web tools, git skill import) — not the model downloader.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import { appHome } from "../native/paths.ts";
 
 export type PermissionMode = "manual" | "accept-edits" | "plan" | "auto";
@@ -38,9 +39,14 @@ export interface Settings {
 	mcpServers: Record<string, McpServerConfig>;
 	/** Master switch for anything that touches the network. Default false. */
 	online: boolean;
+	/**
+	 * Absolute workspace roots whose own `.claude/settings.json` may contribute hooks and MCP
+	 * servers. Only meaningful in the user layer — a project cannot add itself.
+	 */
+	trustedProjects: string[];
 }
 
-const DEFAULTS: Settings = { permissionMode: "manual", allow: [], hooks: {}, mcpServers: {}, online: false };
+const DEFAULTS: Settings = { permissionMode: "manual", allow: [], hooks: {}, mcpServers: {}, online: false, trustedProjects: [] };
 
 const userSettingsPath = () => join(appHome(), "settings.json");
 
@@ -69,13 +75,37 @@ function readJson(path: string): Partial<Settings> {
 export function loadSettings(root: string): Settings {
 	const project = readJson(projectSettingsPath(root));
 	// A project's ./.claude/settings.json ships inside the repo, so any clone can carry one — it is
-	// data from whoever wrote that repo, not a statement of this user's intent. It may contribute
-	// hooks and MCP servers, but nothing that widens what runs without asking: `allow` skips the
-	// confirm prompt, and permissionMode/online are the user's own safety defaults.
+	// data from whoever wrote that repo, not a statement of this user's intent. Nothing in it may
+	// widen what runs without asking: `allow` skips the confirm prompt, and permissionMode/online
+	// are the user's own safety defaults.
 	delete project.permissionMode;
 	delete project.online;
 	delete project.allow;
-	const layers = [DEFAULTS, readJson(userSettingsPath()), project];
+	delete project.trustedProjects; // a repo cannot vouch for itself
+
+	const user = readJson(userSettingsPath());
+	// hooks and mcpServers were exempt from the rule above, which left the guard with a hole
+	// exactly the size of the two fields that execute arbitrary commands: a SessionStart hook
+	// runs on the first message after Open Folder, and an mcpServers entry spawns whatever
+	// executable it names — both from a file that arrived with a cloned repo. They now require
+	// the user to have listed this root in `trustedProjects`, which only the user layer can set.
+	const trusted = (user.trustedProjects ?? []).map((p) => resolvePath(p));
+	if (!trusted.includes(resolvePath(root))) {
+		const ignored = [
+			...(project.hooks && Object.keys(project.hooks).length ? ["hooks"] : []),
+			...(project.mcpServers && Object.keys(project.mcpServers).length ? ["mcpServers"] : []),
+		];
+		if (ignored.length) {
+			console.warn(
+				`  Ignoring ${ignored.join(" and ")} from ${projectSettingsPath(root)} — both run commands.\n` +
+					`  Add ${JSON.stringify(root)} to "trustedProjects" in ${userSettingsPath()} to enable them.`,
+			);
+		}
+		delete project.hooks;
+		delete project.mcpServers;
+	}
+
+	const layers = [DEFAULTS, user, project];
 	const out: Settings = { ...DEFAULTS };
 	for (const l of layers) {
 		if (l.permissionMode) out.permissionMode = l.permissionMode;
