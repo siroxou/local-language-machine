@@ -257,6 +257,16 @@ deterministic scan that gates CI, and an opt‑in model‑driven sweep that runs
 with the weights and never gates anything. Full reference — rules, guardrails, the trace
 format, and the rules deliberately *not* shipped — is in **[docs/audit.md](docs/audit.md)**.
 
+<div align="center">
+<img src="docs/screenshots/audit-terminal.png" alt="The audit running in the app's own integrated terminal, reporting two baselined findings and no new ones" width="900" />
+<br/><em>The project auditing its own source, in its own terminal — two baselined findings, none new.</em>
+</div>
+
+<div align="center">
+<img src="docs/screenshots/audit-report.png" alt="The generated audit report open in the editor, showing new, baselined and resolved sections" width="900" />
+<br/><em>Every run writes <code>audit/last/</code> — a JSONL trace, a metrics summary, and this report.</em>
+</div>
+
 **What this does not cover.** The gate does not execute the preview server or the desktop
 shell. There is no fuzzing and no coverage measurement. The audit is a string‑and‑regex
 scanner, so it can assert that a safety concept is *present* but never that it is *correct* —
