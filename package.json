@@ -23,6 +23,8 @@
   },
   "scripts": {
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "audit": "tsx src/audit/cli.ts",
+    "audit:ci": "tsx src/audit/cli.ts --check",
     "bench:data": "tsx bench/gen-dataset.ts",
     "bench": "tsx bench/run-matrix.ts",
     "preview": "tsx src/preview/server.ts",

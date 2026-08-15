@@ -8,5 +8,8 @@
     "sourceMap": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"]
+  // src/audit is developer tooling, not part of the app. Without this it would compile
+  // into dist/, and dist/ ships in both the installer and the published package — so the
+  // auditor would land on every user's disk.
+  "exclude": ["src/**/*.test.ts", "src/audit/**"]
 }

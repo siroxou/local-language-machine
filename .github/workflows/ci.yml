@@ -1,0 +1,74 @@
+name: CI
+
+# The quality gate. Until this existed nothing ran the tests: release.yml triggers on a
+# tag and goes straight from `npm ci` to electron-builder, so a broken tree could be
+# packaged and published without a single assertion running. The whole gate takes a few
+# seconds, so it runs on every push and every pull request.
+#
+# One job, not three. Splitting typecheck / test / audit would pay the checkout and
+# `npm ci` cost three times to parallelise work that finishes in seconds.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push supersedes the run it interrupted — nobody needs the stale answer.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux is the fast path. Windows is here because the path jail is the security
+        # boundary for everything the model touches, and Windows is where it could differ:
+        # drive-relative paths, backslash separators, and case-insensitive prefixes.
+        # macOS adds nothing Linux does not already cover and bills at ten times the rate.
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The engine test loads a real 135M GGUF and runs inference on it. Cached that is a
+      # couple of seconds; uncached it is a ~100 MB download per run, and without the cache
+      # the test quietly skips — leaving the inference path with no coverage at all. The key
+      # is the registry file, so pinning a different model invalidates it.
+      - name: Cache the model the engine test needs
+        uses: actions/cache@v4
+        with:
+          path: ~/.local-language-machine/models
+          key: models-${{ runner.os }}-${{ hashFiles('src/native/models/registry.ts') }}
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      # Deterministic pass only — no --model, so this cannot trigger a multi-gigabyte
+      # download. Fails only on findings absent from audit/baseline.json. Exit 2 means the
+      # auditor itself failed a self-check, which is a different problem from a dirty tree.
+      - name: Audit
+        run: npm run audit:ci
+
+      - name: Upload the audit run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-${{ matrix.os }}
+          path: audit/last
+          if-no-files-found: warn

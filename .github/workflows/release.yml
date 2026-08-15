@@ -28,6 +28,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The gate runs here rather than as its own job: this job already checks out, and
+      # `build` already needs it, so a failure blocks all three platform builds and the
+      # publish without adding a runner or a second checkout. ci.yml covers branches and
+      # pull requests, but a tag push never triggers it — so without these four steps a
+      # release could still ship code that no test had ever run against.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run audit:ci
+
       - name: Open a draft release for this tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

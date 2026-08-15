@@ -1,0 +1,14 @@
+{
+  "accepted": {
+    "be87a704e94c": {
+      "rule": "download-without-integrity",
+      "file": "src/native/training/gguf.ts",
+      "note": "The converter URL is pinned to llama.cpp tag b4400, and the download is now bounded by a 30s timeout, a 4MB size ceiling, and a shape check that refuses anything that does not look like the expected Python script. What is still missing is a pinned sha256, which cannot be added without first fetching the file and recording its digest — do that and remove this entry. Until then the residual risk is a tampered raw.githubusercontent response that still passes the shape check."
+    },
+    "2141cf8d5915": {
+      "rule": "download-without-integrity",
+      "file": "src/native/training/runs.ts",
+      "note": "Downloads dataset rows from the Hugging Face datasets-server and writes them as JSONL under the workspace. Accepted rather than fixed because this payload is training data, never executed: a corrupted response produces a bad fine-tune, not code execution. There is also no digest to check against — the rows are generated per query, so no stable hash exists. Revisit if this path ever writes anything that is later run."
+    }
+  }
+}
