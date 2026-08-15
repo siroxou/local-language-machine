@@ -15,7 +15,7 @@ export interface CommandDeps {
 	initMemory(): string;
 	sessions(): Array<{ id: string; label: string }>;
 	resume(id: string): Promise<void>;
-	fork(): string;
+	fork(): Promise<string>;
 	skills(): Skill[];
 }
 
@@ -69,7 +69,7 @@ export async function handleCommand(text: string, deps: CommandDeps): Promise<Co
 		}
 
 		case "fork":
-			return { kind: "reply", text: `Forked into new session ${deps.fork()}.` };
+			return { kind: "reply", text: `Forked into new session ${await deps.fork()}.` };
 
 		default: {
 			const skill = deps.skills().find((s) => s.name.toLowerCase() === lc);

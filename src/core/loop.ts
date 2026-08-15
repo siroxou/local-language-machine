@@ -51,6 +51,14 @@ export interface LoopOptions {
 	events: LoopEvents;
 	root: string;
 	gate?: ToolGate;
+	/**
+	 * Per-step generation cap. Left unset the model may generate until the context window
+	 * fills, on every one of the six steps — and a gate cannot interrupt that, because a gate
+	 * only runs between tool calls. Set it wherever a runaway turn must stay bounded.
+	 */
+	maxTokens?: number;
+	/** Overrides MAX_TOOL_STEPS. Callers with their own budget need to set the real ceiling. */
+	maxSteps?: number;
 }
 
 /**
@@ -61,12 +69,16 @@ export async function runAgentLoop(opts: LoopOptions): Promise<string> {
 	const { session, tools, events, root, gate } = opts;
 	const valid = new Set(Object.keys(tools));
 	const usedPaths = new Set<string>();
+	const maxSteps = opts.maxSteps ?? MAX_TOOL_STEPS;
 	let input = opts.input;
 	let final = "";
 
-	for (let step = 0; step < MAX_TOOL_STEPS; step++) {
+	for (let step = 0; step < maxSteps; step++) {
 		const router = new CodeRouter(events, usedPaths, root);
-		const output = await session.prompt(input, { onText: (c) => router.push(c) });
+		const output = await session.prompt(input, {
+			onText: (c) => router.push(c),
+			...(opts.maxTokens ? { maxTokens: opts.maxTokens } : {}),
+		});
 		router.flush();
 		const call = parseToolCall(output, valid);
 		if (!call) {
@@ -89,10 +101,24 @@ export async function runAgentLoop(opts: LoopOptions): Promise<string> {
 		const note = await gate?.after?.(call.tool, call.arguments, result);
 		events.onToolResult(call.tool, result);
 
+		// This input is consumed by iteration `step + 1`. If that is the last one, there is no
+		// step left for another tool call, so ask for prose rather than inviting one — cheaper
+		// than reporting an exhausted budget, and it usually turns a dead end into an answer.
+		const lastStep = step + 1 >= maxSteps - 1;
 		input =
 			`Result of ${call.tool}: ${JSON.stringify(result)}\n\n` +
 			(note ? `[hook]: ${note}\n\n` : "") +
-			`Use this to answer the user's request. Call another tool if needed, otherwise reply in plain text.`;
+			(lastStep
+				? `You have no more tool calls available. Answer the user's request now, in plain text, without calling another tool.`
+				: `Use this to answer the user's request. Call another tool if needed, otherwise reply in plain text.`);
+	}
+
+	// Falling out of the loop means every step was spent on a tool call and the model never
+	// produced prose. Returning "" here made that indistinguishable from a real empty reply:
+	// it was persisted as an empty assistant turn and streamed to the UI as a finished
+	// answer, so the turn simply appeared to do nothing. A limit must say that it was hit.
+	if (!final.trim()) {
+		return `[Stopped after ${maxSteps} tool steps without reaching an answer. Try narrowing the request, or ask again to continue.]`;
 	}
 	return final;
 }

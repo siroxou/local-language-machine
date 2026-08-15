@@ -4,7 +4,7 @@
 import { readFile, writeFile, readdir, mkdir, rename as fsRename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { resolveInRoot, walkFiles } from "../native/tools/tools.ts";
+import { resolveInRoot, safeRegExp, walkFiles } from "../native/tools/tools.ts";
 
 const SKIP = new Set(["node_modules", ".git", "dist", ".DS_Store", ".next"]);
 
@@ -101,7 +101,7 @@ export async function searchWorkspace(
 	opts: { regex?: boolean; caseSensitive?: boolean } = {},
 ): Promise<{ matches: SearchMatch[]; truncated: boolean }> {
 	if (!query) return { matches: [], truncated: false };
-	const re = new RegExp(opts.regex ? query : escapeRegex(query), opts.caseSensitive ? "" : "i"); // bad regex throws → surfaced to the caller
+	const re = safeRegExp(opts.regex ? query : escapeRegex(query), opts.caseSensitive ? "" : "i"); // bad or hostile pattern throws → surfaced to the caller
 	const base = resolveInRoot(root, ".");
 	const matches: SearchMatch[] = [];
 	await walkFiles(base, base, async (abs, rel) => {

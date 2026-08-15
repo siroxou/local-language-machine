@@ -38,6 +38,14 @@ export class Session {
 		private readonly projectRoot: string,
 		readonly id: string,
 	) {
+		// Ids reach here straight off the wire (a `resume-session` message carries one), and
+		// they are concatenated into a filesystem path. Without this, an id of "../.." walks
+		// out of the sessions directory and the first checkpoint write lands wherever it
+		// pointed. Validated in the constructor rather than at the call site so create(),
+		// open() and fork() are all covered by the one check.
+		if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+			throw new Error(`Invalid session id: ${id}`);
+		}
 		this.dir = join(projectDir(projectRoot), id);
 		// Deliberately NOT created here. Session.create() runs on every app launch, every Open
 		// Folder and every /clear, so an eager mkdir left a directory behind for conversations

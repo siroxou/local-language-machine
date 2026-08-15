@@ -19,6 +19,7 @@ const PORT = 7433;
 // background and sound settings in localStorage, which is scoped per origin.
 const APP_URL = `http://127.0.0.1:${PORT}`;
 const RELEASES = "https://api.github.com/repos/siroxou/local-language-machine/releases/latest";
+const UPDATE_CHECK_TIMEOUT_MS = 10_000;
 
 // A Finder or Dock launch inherits PATH=/usr/bin:/bin:/usr/sbin:/sbin rather than the
 // login shell's. That silently breaks Python discovery for training, `git clone` for
@@ -68,7 +69,12 @@ const portTaken = (): Promise<boolean> =>
 	});
 
 async function checkForUpdate(): Promise<void> {
-	const res = await net.fetch(RELEASES, { headers: { accept: "application/vnd.github+json" } });
+	// Bounded like every other request in the app: the update check runs on launch, and a
+	// hung endpoint would otherwise leave this promise pending for the life of the process.
+	const res = await net.fetch(RELEASES, {
+		headers: { accept: "application/vnd.github+json" },
+		signal: AbortSignal.timeout(UPDATE_CHECK_TIMEOUT_MS),
+	});
 	if (!res.ok) return; // no releases yet, offline, or rate limited — stay quiet
 	const update = pickUpdate((await res.json()) as GithubRelease, app.getVersion());
 	if (!update) return;

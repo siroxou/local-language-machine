@@ -20,7 +20,7 @@ import {
 } from "node-llama-cpp";
 
 /** Serializable conversation history — persisted for session resume + spliced during compaction. */
-export type { ChatHistoryItem };
+export type { ChatHistoryItem, GbnfJsonSchema };
 
 /** A tool the model may call. `params` is a JSON schema for the arguments. */
 export interface ToolDef {

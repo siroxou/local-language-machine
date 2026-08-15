@@ -9,7 +9,20 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    // Each of these is a rule the audit would otherwise have to implement, worse — and each
+    // was free, in that the tree was already clean under it.
+    // Two stricter flags were tried and left off deliberately:
+    //   exactOptionalPropertyTypes — mostly reports friction with node-llama-cpp's own
+    //     optional properties rather than defects of ours.
+    //   noUncheckedIndexedAccess — real (an empty nvidia-smi line would crash the preview
+    //     server), but it lands ~48 errors at once. That is a refactor, not a gate.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts"]
+  // bench/ and scripts/ are the project's own tooling and import from src/, but were never
+  // typechecked — bench/ in particular generates the numbers the README presents as evidence.
+  "include": ["src/**/*.ts", "bench/**/*.ts"]
 }

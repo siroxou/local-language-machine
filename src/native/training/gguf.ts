@@ -21,6 +21,10 @@ const log = (emit: Emit, line: string) => emit({ type: "train-log", line });
 // Pinned to a llama.cpp tag whose converter is a single self-contained file (master split
 // it into a `conversion` package). b4400 needs only the `gguf` pip package + torch.
 const CONVERTER_URL = "https://raw.githubusercontent.com/ggml-org/llama.cpp/b4400/convert_hf_to_gguf.py";
+const CONVERTER_TIMEOUT_MS = 30_000;
+// The real script is ~250 KB. A ceiling keeps a redirect to something enormous from
+// filling the disk before the shape check below can reject it.
+const MAX_CONVERTER_BYTES = 4 * 1024 * 1024;
 const toolingDir = () => join(appHome(), "tooling");
 
 async function ensureConvertDeps(python: string, emit: Emit): Promise<void> {
@@ -37,9 +41,17 @@ async function ensureConverter(emit: Emit): Promise<string> {
 	const script = join(dir, "convert_hf_to_gguf.py");
 	if (!existsSync(script)) {
 		log(emit, "▸ Fetching llama.cpp GGUF converter …");
-		const res = await fetch(CONVERTER_URL);
+		const res = await fetch(CONVERTER_URL, { signal: AbortSignal.timeout(CONVERTER_TIMEOUT_MS) });
 		if (!res.ok) throw new Error(`Could not download the GGUF converter (${res.status}).`);
-		writeFileSync(script, await res.text());
+		const body = await res.text();
+		// This text is about to be handed to python, so a truncated or unexpected response
+		// must not reach disk. The URL is pinned to a tag, but a proxy or an error page served
+		// with a 200 would otherwise be written out and executed as the converter.
+		if (body.length > MAX_CONVERTER_BYTES) throw new Error("GGUF converter download was unexpectedly large — refusing to run it.");
+		if (!body.includes("gguf") || !/^#!|^import |^"""|^from /m.test(body)) {
+			throw new Error("GGUF converter download did not look like the expected script — refusing to run it.");
+		}
+		writeFileSync(script, body);
 	}
 	return script;
 }

@@ -103,8 +103,11 @@ function authHeaders(): Record<string, string> {
 	return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+// Matches hub.ts: a hung endpoint must not leave the caller pending forever.
+const DS_TIMEOUT_MS = 20_000;
+
 async function dsGet(path: string): Promise<any> {
-	const res = await fetch(`${DS}${path}`, { headers: authHeaders() });
+	const res = await fetch(`${DS}${path}`, { headers: authHeaders(), signal: AbortSignal.timeout(DS_TIMEOUT_MS) });
 	if (res.status === 401 || res.status === 403) throw new Error("Dataset is gated/private — add your Hugging Face token.");
 	if (!res.ok) throw new Error(`HuggingFace datasets error ${res.status}.`);
 	return res.json();
