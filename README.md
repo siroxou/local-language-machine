@@ -14,7 +14,8 @@ network dependency. Open a folder, load a model, and start pairing.
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 ![Offline‑first](https://img.shields.io/badge/offline--first-100%25-6E56CF)
 ![Inference](https://img.shields.io/badge/inference-llama.cpp-orange)
-![Tests](https://img.shields.io/badge/tests-76%20passing-2ea44f)
+![CI](https://img.shields.io/github/actions/workflow/status/siroxou/local-language-machine/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white&color=2ea44f)
+![License](https://img.shields.io/badge/license-MIT-6E56CF)
 ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
 <img src="docs/screenshots/overview.png" alt="Local Language Machine — the main IDE: file explorer, editor, and AI assistant" width="900" />
@@ -206,6 +207,7 @@ Other scripts:
 ```bash
 npm test            # run the test suite
 npm run typecheck   # strict TypeScript, no emit
+npm run audit       # scan the source for broken invariants
 npm run app         # build, then run the desktop shell without packaging
 npm run pack        # build a local .app in release/ (no publishing)
 ```
@@ -220,6 +222,46 @@ git push --follow-tags             # CI builds and attaches Windows + Linux
 
 Windows and Linux artifacts are built by CI rather than locally, because the inference engine
 ships per‑platform prebuilt binaries that only install on their matching host.
+
+---
+
+## Quality gate
+
+The three commands above run on every push and every pull request, and again before a tag is
+allowed to build installers. They are the same three a contributor runs locally, and together
+they take a few seconds.
+
+| | |
+|---|---|
+| 🧪 **Tests** | `node:test`, colocated `*.test.ts`, no framework. One of them loads a real 135M model and runs actual inference — CI caches the file so it never silently skips. |
+| 🔍 **Typecheck** | Strict TypeScript across `src/` and `bench/`. |
+| 🛡️ **Audit** | A dependency‑free scan for architectural invariants: the path jail, `fetch` timeouts, `spawn` error handlers, the socket's origin check, layer boundaries. |
+| 🪟 **Two platforms** | Linux and Windows. The path jail is the security boundary for everything the model touches, and Windows path semantics are exactly where it could differ. |
+
+```mermaid
+flowchart TB
+    P["push · pull request"] --> T["typecheck"] --> S["tests"] --> A["audit"]
+    A --> D{"new finding?"}
+    D -->|no| M["merge"]
+    D -->|yes| F["fail — fix it, annotate it,<br/>or baseline it with a reason"]
+    TAG["git push --follow-tags"] --> T2["the same gate"] --> B["build installers"]
+
+    style T fill:#3178C622,stroke:#3178C6
+    style S fill:#2ea44f22,stroke:#2ea44f
+    style A fill:#6E56CF22,stroke:#6E56CF
+    style T2 fill:#3178C622,stroke:#3178C6
+```
+
+The audit runs the project's own agent against its own source. It has two passes: a
+deterministic scan that gates CI, and an opt‑in model‑driven sweep that runs on the machine
+with the weights and never gates anything. Full reference — rules, guardrails, the trace
+format, and the rules deliberately *not* shipped — is in **[docs/audit.md](docs/audit.md)**.
+
+**What this does not cover.** The gate does not execute the preview server or the desktop
+shell. There is no fuzzing and no coverage measurement. The audit is a string‑and‑regex
+scanner, so it can assert that a safety concept is *present* but never that it is *correct* —
+that is what the tests are for. And findings that predate the gate live in a baseline with a
+written reason each, so a green audit means "no new findings", not "no findings".
 
 ---
 
@@ -270,8 +312,10 @@ Downloads are resumable and verified against a pinned SHA‑256 when one is set.
 | `task` | Delegate a focused, read‑only job to an isolated subagent |
 | `web_search` · `web_fetch` | Online research — **only** when online mode is enabled |
 
-Every file path is resolved **inside** the workspace root; escapes are rejected. Mutating actions
-pass through the permission gate before they run.
+Every file path is resolved **inside** the workspace root; escapes are rejected. Resolution is
+physical rather than textual — symlinks are followed before the check, so a link pointing out of
+the tree does not slip past it, and a glob pattern is confined the same way a path is. Mutating
+actions pass through the permission gate before they run.
 
 <div align="center">
 <img src="docs/screenshots/terminal.png" alt="Integrated terminal and browser dock beneath the editor" width="900" />
@@ -403,7 +447,12 @@ src/
 │  ├─ models/           curated registry + Hugging Face hub
 │  ├─ training/         LoRA trainer, benchmarker, and GGUF export
 │  └─ mcp/              Model Context Protocol client
-└─ preview/        localhost web UI (server + single-page app)
+├─ preview/        localhost web UI (server + single-page app)
+└─ audit/          the project's own source audit (excluded from the build)
+
+audit/
+├─ baseline.json   findings the gate accepts, each with a written reason
+└─ last/           the most recent run: trace.jsonl, summary.json, report.md
 
 bench/
 ├─ gen-dataset.ts   deterministic synthetic-corpus generator (no RNG, self-checking)
