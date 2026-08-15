@@ -200,7 +200,7 @@ async function main(): Promise<number> {
 
 	if (CHECK && parts.fresh.length) {
 		console.log(c.red(`\n${parts.fresh.length} finding(s) not in the baseline.`));
-		console.log(c.dim(`Fix them, annotate with "// audit-ok(rule-id): reason", or add a baseline entry with a note.`));
+		console.log(c.dim(`Fix them, annotate with "// audit-ok(<rule-id>): reason", or add a baseline entry with a note.`));
 		return 1;
 	}
 

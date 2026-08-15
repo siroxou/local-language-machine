@@ -5,10 +5,16 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { RULES, runRules, sliceCall, stripped, unknownSuppressions } from "./rules.ts";
 import { validate } from "./findings.ts";
 
-const REPO = new URL("../..", import.meta.url).pathname;
+// fileURLToPath, not .pathname: a file URL percent-encodes, so a checkout under a path
+// containing a space resolves to a directory that does not exist. walkFiles swallows an
+// unreadable root, so the three repo-level tests below passed by scanning nothing at all —
+// green on a dev machine at "/Users/…/Local first IDE" and red on CI, which is the wrong
+// way round for a test whose whole job is to look at the real tree.
+const REPO = fileURLToPath(new URL("../..", import.meta.url));
 const rule = (id: string) => RULES.filter((r) => r.id === id);
 
 /** Write files into a temp root and run one rule over it. */
@@ -200,7 +206,9 @@ test("no audit-ok annotation in the repo names a rule that does not exist", asyn
 	const { walkFiles } = await import("../native/tools/tools.ts");
 	const bad: string[] = [];
 	await walkFiles(REPO, REPO, async (abs, rel) => {
-		if (!/\.(ts|html)$/.test(rel)) return;
+		// Test files carry deliberately bogus ids as fixtures — including the typo this very
+		// rule exists to catch — so scanning them would report the suite's own inputs.
+		if (!/\.(ts|html)$/.test(rel) || rel.endsWith(".test.ts")) return;
 		for (const id of unknownSuppressions(await readFile(abs, "utf8"))) bad.push(`${rel}: ${id}`);
 	});
 	assert.deepEqual(bad, []);

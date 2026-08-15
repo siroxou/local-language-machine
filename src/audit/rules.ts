@@ -155,7 +155,7 @@ function matches(re: RegExp, src: string, code: string): Array<{ index: number; 
 
 // ————— exceptions —————
 
-// `// audit-ok(rule-id): reason` on the flagged line or the one above it. Both the id
+// `// audit-ok(<rule-id>): reason` on the flagged line or the one above it. Both the id
 // and a non-empty reason are required — a bare `audit-ok` suppresses nothing, for the
 // same reason a baseline entry needs a note.
 const AUDIT_OK = /audit-ok\(([a-z0-9-]+)\)\s*:\s*\S/;
